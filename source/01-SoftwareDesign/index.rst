@@ -9,3 +9,4 @@
     c-best-practice-2.rst
     c-best-practice-3.rst
     c-best-practice-4.rst
+    c-best-practice-5.rst
