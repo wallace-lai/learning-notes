@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "wallace-lai's notes"
-copyright = '2023 - 2023 wallace-lai'
+copyright = '2022 - 2023 wallace-lai'
 author = 'wallace-lai'
 
 
