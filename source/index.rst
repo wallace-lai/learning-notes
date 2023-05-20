@@ -10,7 +10,8 @@ wallace-lai's notes
    :maxdepth: 2
 
    00-Language/index.rst
-   01-DataStructure/index.rst
+   01-SoftwareDesign/index.rst
+   02-DataStructure/index.rst
 
 
 
