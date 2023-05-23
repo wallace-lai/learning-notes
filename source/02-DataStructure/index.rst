@@ -5,3 +5,4 @@
     :maxdepth: 1
 
     avl-tree-0.rst
+    binary-search-0.md
