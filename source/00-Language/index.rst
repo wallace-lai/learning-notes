@@ -6,3 +6,5 @@
 
     learn-go-0.rst
     learn-go-1.rst
+
+    go-stdlib-0.rst
