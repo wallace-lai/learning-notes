@@ -4,5 +4,6 @@
 .. toctree::
     :maxdepth: 2
 
+    binary-heap-0.md
     bit-operation-0.md
     binary-search-0.md
