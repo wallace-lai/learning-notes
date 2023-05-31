@@ -5,3 +5,5 @@
     :maxdepth: 1
 
     avl-tree-0.rst
+
+    binary-heap-0.rst
