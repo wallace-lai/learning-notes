@@ -28,7 +28,10 @@ author = 'wallace-lai'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'recommonmark', 'sphinx_markdown_tables'
 ]
+
+source_suffix = {'.rst' : 'restructuredtext', '.md' : 'markdown'}
 
 # Add any pa ths that contain templates here, relative to this directory.
 templates_path = ['_templates']
