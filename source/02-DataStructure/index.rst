@@ -2,6 +2,7 @@
 ===============================
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
 
+    bit-operation-0.md
     binary-search-0.md
