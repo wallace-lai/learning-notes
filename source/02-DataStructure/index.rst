@@ -7,3 +7,4 @@
     binary-heap-0.md
     bit-operation-0.md
     binary-search-0.md
+    dynamic-programming-0.md
