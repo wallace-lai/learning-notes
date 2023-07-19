@@ -8,3 +8,5 @@
     learn-go-1.rst
 
     go-stdlib-0.rst
+
+    go-manage-package-0.md
