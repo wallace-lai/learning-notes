@@ -10,3 +10,4 @@
     go-stdlib-0.rst
 
     go-manage-package-0.md
+    using-rabbitmq-0.md
