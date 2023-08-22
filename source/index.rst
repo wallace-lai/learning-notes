@@ -9,9 +9,10 @@ wallace-lai's notes
 .. toctree::
    :maxdepth: 2
 
-   00-Language/index.rst
-   01-SoftwareDesign/index.rst
-   02-DataStructure/index.rst
+   Debug/index.rst
+   Language/index.rst
+   SoftwareDesign/index.rst
+   DataStructureAndAlgorithm/index.rst
 
 
 
