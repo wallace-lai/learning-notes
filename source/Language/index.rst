@@ -4,6 +4,8 @@
 .. toctree::
     :maxdepth: 1
 
+    learn-python-0.md
+    
     learn-go-0.rst
     learn-go-1.rst
 
