@@ -9,6 +9,7 @@ wallace-lai's notes
 .. toctree::
    :maxdepth: 2
 
+   ReadSource/index.rst
    Debug/index.rst
    Language/index.rst
    SoftwareDesign/index.rst
