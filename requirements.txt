@@ -1,3 +1,4 @@
-sphinx-markdown-tables==0.0.17
-recommonmark==0.7.1
 sphinx-rtd-theme==1.2.0
+myst-parser==2.0.0
+sphinxcontrib-mermaid==0.9.2
+mathjax=0.1.2
