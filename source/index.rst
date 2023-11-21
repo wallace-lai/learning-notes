@@ -13,6 +13,7 @@ wallace-lai's notes
    Debug/index.rst
    Language/index.rst
    SoftwareDesign/index.rst
+   MachineLearning/index.rst
    DataStructureAndAlgorithm/index.rst
 
 
