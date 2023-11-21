@@ -5,3 +5,4 @@
     :maxdepth: 2
 
     invalid-write.md
+    ReadTheDocs-Test.md
