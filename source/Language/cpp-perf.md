@@ -47,7 +47,7 @@ void func3(unsigned int a, unsigned int b,
 ```
 
 上述代码的汇编结果（结果来源于x86-64 gcc 13.2，经过了O2优化，下同）如下所示。可以看到除法和取余分开会导致执行两次div，但放一起就只需执行一次即可。
-```asm
+```
 func1(unsigned int, unsigned int):
         mov     eax, edi
         xor     edx, edx
@@ -86,7 +86,7 @@ uint div2(uint a)
 ```
 
 汇编结果如下，可以知道——如果编译器发现除数是2的幂次方，那么它将主动将除法优化成移位操作，与代码主动移位的结果相同。
-```asm
+```
 div1(unsigned int):
         mov     eax, edi
         shr     eax, 5
@@ -114,7 +114,7 @@ sint div2(sint a)
 ```
 
 汇编结果如下所示，可以看到unsigned int的汇编结果比int简洁了不少。
-```asm
+```
 div1(unsigned int):
         mov     eax, edi
         shr     eax, 5
@@ -173,7 +173,7 @@ char func3(unsigned num)
 ```
 
 上述代码的汇编代码如下。可以看到switch和if的两种不同形式被优化成了同一段汇编代码（如果分支数多于某个值，二者汇编代码会不同），都是数组下标的方式。第三段代码也被编译成了数组下标方式，但更简洁。如果分支数很多，那么第三段代码和前面两段代码的性能优势就会更加明显。
-```asm
+```
 func1(unsigned int):
         mov     eax, 85
         cmp     edi, 2
@@ -188,7 +188,7 @@ CSWTCH.1:
         .byte   88
 ```
 
-```asm
+```
 func2(unsigned int):
         mov     eax, 85
         cmp     edi, 2
@@ -203,7 +203,7 @@ CSWTCH.1:
         .byte   88
 ```
 
-```asm
+```
 .LC0:
         .string "WVXU"
 func3(unsigned int):
@@ -269,7 +269,7 @@ void func2(int *data)
 
 上述两函数的汇编代码如下，可以看到test1方向需要每次循环时都读取一遍`*data`，而test2方法只需要在循环开始前读取一遍即可。
 
-```asm
+```
 func1(int*):
         push    rbp
         mov     rbp, rdi
@@ -326,7 +326,7 @@ void func2(char *src, char *buffer)
 }
 ```
 
-```asm
+```
 func1(char*, char*):
         push    r12
         mov     r12, rsi
@@ -351,7 +351,7 @@ func1(char*, char*):
         ret
 ```
 
-```asm
+```
 func2(char*, char*):
         push    rbp
         mov     rbp, rsi
@@ -401,7 +401,7 @@ char charinc (char a)
 }
 ```
 
-```asm
+```
 wordinc(int):
         lea     eax, [rdi+1]
         ret
@@ -445,7 +445,7 @@ void InitPos2(Object *p)
 另一种方法是在Object结构中直接包含Point3类型的数据，这能完全消除对Point3使用指针操作（破坏了对象的封装性）。
 
 可以看到两个方法的汇编是一样的，也即编译器没有愚蠢到看不懂两个方法其实是一样的。
-```asm
+```
 InitPos1(Object*):
         mov     rax, QWORD PTR [rdi]
         mov     QWORD PTR [rax], 0
