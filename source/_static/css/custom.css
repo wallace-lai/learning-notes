@@ -1,8 +1,9 @@
 @import url('theme.css');
 
-pre.literal-block {
-    font-family: 'Source Code Variable Regular','Lucida Console','Consolas','monospace','Courier New','Monaco','SFMono-Regular';
-    font-size: 16px;
-    line-height: 1.4;
+body {
+    pre.literal-block {
+        font-family: 'Source Code Variable Regular','Lucida Console','Consolas','monospace','Courier New','Monaco','SFMono-Regular';
+        font-size: 16px;
+        line-height: 1.4;
+    }
 }
-
