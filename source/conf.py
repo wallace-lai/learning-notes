@@ -39,9 +39,6 @@ mathjax_path = 'MathJax/es5/tex-chtml.js'
 # Source suffix
 source_suffix = {'.rst' : 'restructuredtext', '.md' : 'markdown'}
 
-# Don't show source link
-html_show_sourcelink = False
-
 # Add any pa ths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
