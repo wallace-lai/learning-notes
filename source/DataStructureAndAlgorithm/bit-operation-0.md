@@ -54,7 +54,7 @@
 ### Brian Kernighan算法
 Brian Kernighan算法指的是通过将`n`与`n - 1`按位与之后，用于清除二进制串`n`最右边的1。其原理如下图所示。当`n`为12时，`n - 1`为11，12变成11的过程中，最右边的1被“借一当二”，于是12和11按位与的结果就是12最右边的1被干掉了。
 
-![Brian Kernighan](../media/images/02/bit-op-0.png)
+![Brian Kernighan](../media/images/DataStructureAndAlgorithm/bit-op-0.png)
 
 Brian Kernighan算法是位运算中非常常见的算法，具体的应用案例可以看下列练习题：
 

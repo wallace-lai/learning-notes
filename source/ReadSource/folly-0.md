@@ -4,4 +4,4 @@
 发布：2023-11-19 </br>
 更新：2023-11-19 </br>
 
-![Alt text](image.png)
+![Alt text](../media/images/ReadSource/arch.png)

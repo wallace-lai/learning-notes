@@ -241,7 +241,7 @@
 
 假定有如下格式的消息包，我们希望能够将它解析成以下的标准数据结构。
 
-.. image:: ../media/images/01/c-best-practice-0.png
+.. image:: ../media/images/SoftwareDesign/c-best-practice-0.png
     :scale: 80
 
 

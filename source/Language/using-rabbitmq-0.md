@@ -22,7 +22,7 @@ MQ本身宕机会造成系统不可用，因此整个系统可用性会降低</b
 ### RabbitMQ简介
 AMQP，即Advanced Message Queuing Protocol（高级消息队列协议），是一个应用层的网络协议的开放标准，专为消息中间件设计。基于此协议的客户端与消息中间件可传递消息，并不受客户端/中间件不同产品，不同开发语言的限制。
 
-![](../media/images/00/amqp0.png)
+![](../media/images/Language/amqp0.png)
 
 AMQP协议中规定的几类角色如上图所示。
 
@@ -36,7 +36,7 @@ AMQP协议中规定的几类角色如上图所示。
 
 2007年，Rabbit技术公司基于AMQP标准开发的RabbitMQ 1.0发布。RabbitMQ采用Erlang语言开发。Erlang是一种专门为高并发和分布式系统设计的语言，在电信领域使用广泛。
 
-![](../media/images/00/amqp1.png)
+![](../media/images/Language/amqp1.png)
 
 RabbitMQ中的概念
 
