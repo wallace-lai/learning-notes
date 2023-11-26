@@ -1,5 +1,9 @@
 # ReadTheDocs功能测试
 
+作者：wallace-lai </br>
+发布：2023-11-22 </br>
+更新：2023-11-22 </br>
+
 ## Mermaid
 
 ```{mermaid}

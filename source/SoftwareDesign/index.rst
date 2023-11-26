@@ -6,7 +6,7 @@
 
     c-best-practice-0.md
     c-best-practice-1.md
-    c-best-practice-2.rst
-    c-best-practice-3.rst
+    c-best-practice-2.md
+    c-best-practice-3.md
     c-best-practice-4.rst
     c-best-practice-5.rst
