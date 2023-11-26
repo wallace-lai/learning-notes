@@ -68,10 +68,8 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 # Add custom css file
-# html_css_files = ['css/custom.css']
+html_css_files = ['css/custom.css']
 
 # Use custom styles in custom.css to replace theme's stylesheet
-# html_style = 'css/custom.css'
+html_style = 'css/custom.css'
 
-def setup(app):
-    app.add_stylesheet("css/custom.css")
