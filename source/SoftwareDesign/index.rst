@@ -8,5 +8,5 @@
     c-best-practice-1.md
     c-best-practice-2.md
     c-best-practice-3.md
-    c-best-practice-4.rst
-    c-best-practice-5.rst
+    c-best-practice-4.md
+    c-best-practice-5.md
