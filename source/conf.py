@@ -33,6 +33,14 @@ extensions = [
     'sphinx.ext.mathjax',
 ]
 
+# Extensions for myst_parser
+# https://studynotes.readthedocs.io/zh/main/struct/MyST/optional-syntax.html
+myst_enable_extensions = [
+    'dollarmath',
+    'amsmath',
+    'tasklist'
+]
+
 # Set MathJax path to local dir
 mathjax_path = 'MathJax/es5/tex-chtml.js'
 
