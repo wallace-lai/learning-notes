@@ -6,3 +6,4 @@
 
     invalid-write.md
     ReadTheDocs-Test.md
+    m3u8-0.md
