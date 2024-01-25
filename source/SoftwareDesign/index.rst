@@ -12,3 +12,8 @@
     c-best-practice-5.md
 
     learn-flex-and-bison-0.md
+    learn-flex-and-bison-1.md
+    learn-flex-and-bison-2.md
+    learn-flex-and-bison-3.md
+    learn-flex-and-bison-4.md
+    learn-flex-and-bison-5.md
