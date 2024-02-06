@@ -5,5 +5,7 @@
     :maxdepth: 2
 
     remain.md
-    invalid-write.md
     ReadTheDocs-Test.md
+
+    fix-invalid-write.md
+    fix-cargo-build.md
