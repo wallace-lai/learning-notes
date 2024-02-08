@@ -5,6 +5,7 @@
     :maxdepth: 2
 
     remain.md
+    architect-roadmap.md
     ReadTheDocs-Test.md
 
     fix-invalid-write.md
