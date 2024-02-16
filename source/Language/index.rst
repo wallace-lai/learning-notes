@@ -5,6 +5,7 @@
     :maxdepth: 1
 
     cpp-perf.md
+    cpp-reserve-vs-resize.md
 
     go-manage-package-0.md
     go-using-rabbitmq-0.md
