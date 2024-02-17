@@ -10,3 +10,4 @@
     binary-search-0.md
     dynamic-programming-0.md
     dfs.md
+    bfs.md
