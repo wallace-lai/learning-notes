@@ -113,3 +113,28 @@ vector<int> postorderTraversal(TreeNode* root) {
     return result;
 }
 ```
+
+## LeetCode 0590 N叉树的后序遍历【简单】
+
+[链接](https://leetcode.cn/problems/n-ary-tree-postorder-traversal/description/)
+
+比较简单，观察可知我只需要遵循以下的两个规则就能得到N叉树的后序遍历：
+
+（1）如果结点存在子树，则优先遍历子树
+
+（2）同级别的子树之间按照从左到右的顺序进行层序遍历
+
+关键代码如下：
+
+```cpp
+void DFS(Node *root, vector<int> &result) {
+    if (root == nullptr) {
+        return;
+    }
+
+    for (auto &x : root->children) {
+        DFS(x, result);
+    }
+    result.push_back(root->val);
+}
+```
