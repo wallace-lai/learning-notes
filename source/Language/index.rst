@@ -4,6 +4,7 @@
 .. toctree::
     :maxdepth: 1
 
+    cpp-snippet.md
     cpp-perf.md
     cpp-reserve-vs-resize.md
 
