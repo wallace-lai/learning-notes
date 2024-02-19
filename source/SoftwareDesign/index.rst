@@ -11,4 +11,6 @@
     c-best-practice-4.md
     c-best-practice-5.md
 
+    spark-learn0.md
+
     learn-flex-and-bison-0.md

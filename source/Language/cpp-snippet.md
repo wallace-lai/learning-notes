@@ -1,4 +1,4 @@
-# 【C/C++】C/C++常用代码片段
+# 常用代码片段集锦
 
 作者：wallace-lai </br>
 发布：2024-02-19 </br>
@@ -39,3 +39,12 @@ while (getline(ss, value, '*')) {
 
 输出：`vec = { "", "1", "2", "3" }`
 
+## 三、shell常用代码片段
+
+### find
+
+（1）查找当前目录中所有代码源文件的代码总行数
+
+```shell
+find . -name "*.cpp" | xargs wc -l | grep total
+```
