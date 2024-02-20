@@ -259,6 +259,131 @@ vector<vector<int>> levelOrder(Node* root) {
 }
 ```
 
+## LeetCode 0623 在二叉树中增加一行【中等】
+[链接](https://leetcode.cn/problems/add-one-row-to-tree/description/)
+
+解题思路比较简单：在使用BFS进行层序遍历时，在遍历到指定层级时，对该层级的所有结点都新增一层子结点即可。
+
+核心代码如下：
+
+```cpp
+TreeNode* addOneRow(TreeNode* root, int val, int depth) {
+    if (depth == 1) {
+        TreeNode *result = new TreeNode(val);
+        result->left = root;
+        return result;
+    }
+
+    int count = 1;
+    queue<TreeNode*> q;
+    q.push(root);
+
+    while (!q.empty()) {
+        count++;
+
+        size_t len = q.size();
+        for (size_t i = 0; i < len; i++) {
+            TreeNode *curr = q.front();
+            q.pop();
+
+            // 新增一层
+            if (count == depth) {
+                TreeNode *nLeft = new TreeNode(val);
+                TreeNode *nRight = new TreeNode(val);
+                nLeft->left = curr->left;
+                nRight->right = curr->right;
+                curr->left = nLeft;
+                curr->right = nRight;
+                continue;
+            }
+
+            if (curr->left != nullptr) {
+                q.push(curr->left);
+            }
+            if (curr->right != nullptr) {
+                q.push(curr->right);
+            }
+        }
+
+        if (count == depth) {
+            break;
+        }
+    }
+
+    return root;
+}
+```
+
+## LeetCode 0802 找到最终的安全状态【中等】
+[链接](https://leetcode.cn/problems/find-eventual-safe-states/description/)
+
+这题稍微复杂了点，解题思路如下：
+
+（1）首先寻找没有连出有向边的结点，即终端结点，终端结点天然是安全结点
+
+（2）从终端结点开始进行BFS搜索，如果有个结点所有连出的有向边最终都指向现存的安全结点，则将这样的结点加入到安全结点列表中
+
+（3）重复上述过程，直到所有的安全结点都被找到为止
+
+核心代码如下：
+
+```cpp
+bool IsSafe(size_t id, vector<vector<int>> &graph, unordered_set<int> &safeNode) {
+    vector<int> &child = graph[id];
+    for (auto &x : child) {
+        if (safeNode.count(x) == 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+vector<int> eventualSafeNodes(vector<vector<int>>& graph) {
+    // 构建反向映射图
+    vector<vector<int>> rGraph;
+    rGraph.resize(graph.size());
+    for (size_t i = 0; i < graph.size(); i++) {
+        vector<int> &g = graph[i];
+        for (auto &x : g) {
+            rGraph[x].push_back(i);
+        }
+    }
+
+    // 寻找终端节点存入安全结点列表
+    queue<int> q;
+    unordered_set<int> safeNode;
+    for (size_t i = 0; i < graph.size(); i++) {
+        vector<int> &g = graph[i];
+        if (g.size() == 0) {
+            safeNode.insert(i);
+            q.push(i);
+        }
+    }
+
+    // 从终端结点开始进行BFS搜索，如果找到安全结点则加入队列中
+    while (!q.empty()) {
+        size_t len = q.size();
+        for (size_t i = 0; i < len; i++) {
+            int curr = q.front();
+            q.pop();
+
+            vector<int> &child = rGraph[curr];
+            for (auto &x : child) {
+                if (safeNode.count(x) == 0 && IsSafe(x, graph, safeNode)) {
+                    safeNode.insert(x);
+                    q.push(x);
+                }
+            }
+        }
+    }
+
+    vector<int> result(safeNode.begin(), safeNode.end());
+    sort(result.begin(), result.end());
+    return result;
+}
+```
+
 ## LeetCode 0965 单值二叉树【简单】
 [链接](https://leetcode.cn/problems/univalued-binary-tree/description/)
 

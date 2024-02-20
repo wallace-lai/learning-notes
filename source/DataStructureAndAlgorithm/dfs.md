@@ -47,6 +47,56 @@ vector<int> inorderTraversal(TreeNode* root) {
 }
 ```
 
+## LeetCode 0105 从前序与中序遍历序列构造二叉树【中等】
+[链接](https://leetcode.cn/problems/construct-binary-tree-from-preorder-and-inorder-traversal/description/)
+
+二叉树的前序遍历形式为：
+
+```
+[ 根节点, [左子树的前序遍历结果], [右子树的前序遍历结果] ]
+```
+
+中序遍历形式为：
+
+```
+[ [左子树的中序遍历结果], 根节点, [右子树的中序遍历结果] ]
+```
+
+从前序与中序遍历序列中还原成原始二叉树的思路为：
+
+（1）获取二叉树前序遍历序列中的第一个元素作为根结点
+
+（2）然后去中序遍历序列中找到根结点，这样就将中序序列分成了左右子树两个部分
+
+（3）递归地对左右子树重复上述步骤，直到把整棵树给构造出来
+
+注意有个可以优化的点是：因为树结点值不重复，所以可以使用哈希表保存结点值在中序遍历序列中的位置，以便快速查找根结点在中序遍历序列中的位置。核心代码如下：
+
+```cpp
+TreeNode *BuildTree(vector<int> &pre, int preBeg, int preEnd, vector<int> &in, int inBeg, int inEnd) {
+    TreeNode *root = nullptr;
+
+    if (preEnd - preBeg >= 1) {
+        root = new TreeNode(pre[preBeg]);
+        int rootPos = pos[root->val];
+        int leftSize = rootPos - inBeg;
+        root->left = BuildTree(pre, preBeg + 1, preBeg + 1 + leftSize, in, inBeg, inBeg + leftSize);
+        root->right = BuildTree(pre, preBeg + 1 + leftSize, preEnd, in, inBeg + leftSize + 1, inEnd);
+    }
+
+    return root;
+}
+
+TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+    for (size_t i = 0; i < inorder.size(); i++) {
+        pos[inorder[i]] = i;
+    }
+
+    return BuildTree(preorder, 0, preorder.size(), inorder, 0, inorder.size());
+}
+```
+
+
 ## LeetCode 0144 二叉树的前序遍历
 前序遍历指的是按照**根左右**的顺序遍历二叉树中的结点，前序遍历用迭代法实现相对比较简单，只需要在遍历根结点的时候将左右子树放入栈中作为下一步遍历的起始结点即可。其代码实现如下所示：
 
@@ -138,3 +188,9 @@ void DFS(Node *root, vector<int> &result) {
     result.push_back(root->val);
 }
 ```
+
+## LeetCode 0797 所有可能的路径【中等】
+
+[链接](https://leetcode.cn/problems/all-paths-from-source-to-target/description/)
+
+比较简单，直接DFS搜索即可
