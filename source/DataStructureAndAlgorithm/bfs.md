@@ -384,6 +384,93 @@ vector<int> eventualSafeNodes(vector<vector<int>>& graph) {
 }
 ```
 
+## LeetCode 0934 最短的桥【中等】
+[链接](https://leetcode.cn/problems/shortest-bridge/description/)
+
+题目不难，解题思路如下：
+
+（1）首先通过DFS找到其中一个岛所占据的所有方格存入source中，同时将该岛方格中的1修改成0
+
+（2）将source中的所有位置入队列作为BFS搜索的起始位置，开始进行BFS搜索，只要搜到一个值为1的方格就说明搜索到了第二个岛。返回此时的层次计数器值即可
+
+核心代码如下：
+
+```cpp
+void FindIsland(vector<vector<int>> &grid, int x, int y,
+    vector<pair<int, int>> &island, vector<vector<bool>> &vis) {
+    int n = grid.size();
+    static int dx[] = {-1, 1, 0, 0};
+    static int dy[] = {0, 0, -1, 1};
+
+    int nx, ny;
+    for (size_t k = 0; k < 4; k++) {
+        nx = x + dx[k];
+        ny = y + dy[k];
+        if (0 <= nx && nx < n && 0 <= ny && ny < n && grid[nx][ny] == 1 && !vis[nx][ny]) {
+            island.push_back(make_pair(nx, ny));
+            vis[nx][ny] = true;
+            grid[nx][ny] = 0;
+            FindIsland(grid, nx, ny, island, vis);
+        }
+    }
+}
+
+int shortestBridge(vector<vector<int>>& grid) {
+    int n = grid.size();
+    vector<vector<bool>> vis(n, vector<bool>(n, false));
+
+    vector<pair<int, int>> source;
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < n; j++) {
+            if (grid[i][j] == 1) {
+                source.push_back(make_pair(i, j));
+                vis[i][j] = true;
+                grid[i][j] = 0;
+                FindIsland(grid, i, j, source, vis);
+                goto FIND_SOURCE_END;
+            }
+        }
+    }
+
+FIND_SOURCE_END:
+    int count = -1;
+    queue<pair<int, int>> q;
+    for (auto iter = source.begin(); iter != source.end(); iter++) {
+        q.push(*iter);
+    }
+
+    static int nx, ny;
+    static int dx[] = {-1, 1, 0, 0};
+    static int dy[] = {0, 0, -1, 1};
+
+    while (!q.empty()) {
+        count++;
+        size_t len = q.size();
+        for (size_t i = 0; i < len; i++) {
+            pair<int, int> curr = q.front();
+            q.pop();
+
+            for (size_t k = 0; k < 4; k++) {
+                nx = curr.first + dx[k];
+                ny = curr.second + dy[k];
+                if (0 <= nx && nx < n && 0 <= ny && ny < n) {
+                    if (grid[nx][ny] == 1) {
+                        return count;
+                    }
+
+                    if (!vis[nx][ny]) {
+                        vis[nx][ny] = true;
+                        q.push(make_pair(nx, ny));
+                    }
+                }
+            }
+        }
+    }
+
+    return count;
+}
+```
+
 ## LeetCode 0965 单值二叉树【简单】
 [链接](https://leetcode.cn/problems/univalued-binary-tree/description/)
 

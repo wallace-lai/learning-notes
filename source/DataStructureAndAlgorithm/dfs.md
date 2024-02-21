@@ -96,6 +96,28 @@ TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
 }
 ```
 
+## LeetCode 0106 从中序与后序遍历序列构造二叉树【中等】
+[链接](https://leetcode.cn/problems/shortest-bridge/description/)
+
+和上一题是类似的，仍然是递归地构建即可，核心代码如下：
+
+```cpp
+TreeNode *Build(vector<int> &post, int postBeg, int postEnd, vector<int> &in, int inBeg, int inEnd) {
+    TreeNode *result = nullptr;
+
+    if (postEnd - postBeg >= 1) {
+        int root = post[postEnd - 1];
+        int rootPos = pos[root];
+        int leftSize = rootPos - inBeg;
+
+        result = new TreeNode(root);
+        result->left = Build(post, postBeg, postBeg + leftSize, in, inBeg, inBeg + leftSize);
+        result->right = Build(post, postBeg + leftSize, postEnd - 1, in, inBeg + leftSize + 1, inEnd);
+    }
+
+    return result;
+}
+```
 
 ## LeetCode 0144 二叉树的前序遍历
 前序遍历指的是按照**根左右**的顺序遍历二叉树中的结点，前序遍历用迭代法实现相对比较简单，只需要在遍历根结点的时候将左右子树放入栈中作为下一步遍历的起始结点即可。其代码实现如下所示：
