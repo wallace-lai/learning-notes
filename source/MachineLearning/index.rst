@@ -4,8 +4,11 @@
 .. toctree::
     :maxdepth: 1
 
-    ml-0.md
-    ml-1.md
-    ml-2.md
-    ml-alg-0.md
-    ml-alg-1.md
+    ml-alg0.md
+    ml-alg1.md
+    ml-alg2.md
+    ml-alg3.md
+    ml-alg4.md
+
+    zheda-ml0.md
+    zheda-ml1.md
