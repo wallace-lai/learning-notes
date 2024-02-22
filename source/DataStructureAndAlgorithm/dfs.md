@@ -216,3 +216,60 @@ void DFS(Node *root, vector<int> &result) {
 [链接](https://leetcode.cn/problems/all-paths-from-source-to-target/description/)
 
 比较简单，直接DFS搜索即可
+
+## LeetCode 0889 根据前序和后序遍历构造二叉树【中等】
+[链接](https://leetcode.cn/problems/construct-binary-tree-from-preorder-and-postorder-traversal/description/)
+
+已知前序和后序遍历序列的情况下，无法确定唯一的一棵二叉树，可能存在多种情况。如下所示：
+
+前序遍历：
+
+```
+根 【左子树】 【右子树】
+```
+
+后序遍历：
+
+```
+【左子树】 【右子树】 根
+```
+
+我们无法得知左子树和右子树的边界在哪，所以可能存在多种符合条件的情况。但是，题目只要求我们找出其中一种即可。有一个思路是：对于前序和后序，同时从左子树起始位置开始遍历，只要二者遍历找到的左子树构成的集合是相等的，就当我们找到了左子树。然后根据这个递归地去构造二叉树即可。
+
+核心代码如下：
+
+```cpp
+TreeNode* BuildTree(vector<int> &pre, int preBeg, int preEnd,
+    vector<int> &post, int postBeg, int postEnd) {
+    TreeNode *result = nullptr;
+    if (preEnd - preBeg >= 1) {
+        int root = pre[preBeg];
+        result = new TreeNode(root);
+
+        set<int> preLeft;
+        set<int> postLeft;
+        for (int i = 0; i + postBeg < postEnd - 1; i++) {
+            preLeft.insert(pre[i + preBeg + 1]);
+            postLeft.insert(post[i + postBeg]);
+            // 只要找到相同的左子树集合，就开始递归往下构建
+            if (preLeft == postLeft) {
+                result->left = BuildTree(pre, preBeg + 1, preBeg + 1 + i + 1, post, postBeg, postBeg + i + 1);
+                result->right = BuildTree(pre, preBeg + 1 + i + 1, preEnd, post, postBeg + i + 1, postEnd - 1);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+```
+
+## LeetCode 1457 二叉树中的伪回文路径【中等】
+
+[链接](https://leetcode.cn/problems/pseudo-palindromic-paths-in-a-binary-tree/description/)
+
+这个题目比较简单，核心是先通过DFS遍历找到一条路径，再判断该路径是否为伪回文路径即可，代码略。
+
+
+
+

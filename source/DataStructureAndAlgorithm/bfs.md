@@ -259,6 +259,17 @@ vector<vector<int>> levelOrder(Node* root) {
 }
 ```
 
+## LeetCode 0513 找树左下角的值【中等】
+[链接](https://leetcode.cn/problems/find-bottom-left-tree-value/description/)
+
+比较简单，直接运用BFS模板稍加改动即可。
+
+## LeetCode 0515 在每个树行中找最大值【中等】
+[链接](https://leetcode.cn/problems/find-largest-value-in-each-tree-row/description/)
+
+比较简单，直接运用BFS模板稍加改动即可。
+
+
 ## LeetCode 0623 在二叉树中增加一行【中等】
 [链接](https://leetcode.cn/problems/add-one-row-to-tree/description/)
 
@@ -384,6 +395,88 @@ vector<int> eventualSafeNodes(vector<vector<int>>& graph) {
 }
 ```
 
+## LeetCode 0919 完全二叉树插入器【中等】
+[链接](https://leetcode.cn/problems/complete-binary-tree-inserter/description/)
+
+题目稍微有点复杂，核心思路是：维护一个保存二叉树每一层结点的表，结点在表中的下标为i，则它对应父结点在上一层表中的下标为i / 2。核心代码如下：
+
+```cpp
+struct CBT {
+    size_t level;
+    vector<vector<TreeNode*>> links;
+};
+
+class CBTInserter {
+private:
+    CBT cbt;
+
+public:
+    CBTInserter(TreeNode* root) {
+        int depth = -1;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty()) {
+            depth++;
+            cbt.links.push_back(vector<TreeNode*>());
+            vector<TreeNode*> &link = cbt.links[depth];
+
+            size_t len = q.size();
+            for (size_t i = 0; i < len; i++) {
+                TreeNode *curr = q.front();
+                q.pop();
+
+                link.push_back(curr);
+                if (curr->left != nullptr) {
+                    q.push(curr->left);
+                }
+                if (curr->right != nullptr) {
+                    q.push(curr->right);
+                }
+            }
+        }
+
+        cbt.level = depth;
+    }
+    
+    int insert(int val) {
+        size_t linkNum = cbt.links.size();
+        size_t l = cbt.level;
+        while (l < linkNum) {
+            vector<TreeNode*> &link = cbt.links[l];
+            if (link.size() < (1 << l)) {
+                break;
+            }
+            l++;
+        }
+
+        cbt.level = l;
+        if (cbt.level == linkNum) {
+            cbt.links.push_back(vector<TreeNode*>());
+        }
+
+        vector<TreeNode*> &link = cbt.links[cbt.level];
+        TreeNode *nval = new TreeNode(val);
+        link.push_back(nval);
+
+        size_t nvalPos = link.size() - 1;
+        size_t rootPos = nvalPos / 2;
+        vector<TreeNode*> &rootLink = cbt.links[cbt.level - 1];
+        TreeNode *rootNode = rootLink[rootPos];
+        if (rootNode->left == nullptr) {
+            rootNode->left = nval;
+        } else {
+            rootNode->right = nval;
+        }
+
+        return rootNode->val;
+    }
+    
+    TreeNode* get_root() {
+        return cbt.links[0][0];
+    }
+};
+```
+
 ## LeetCode 0934 最短的桥【中等】
 [链接](https://leetcode.cn/problems/shortest-bridge/description/)
 
@@ -500,3 +593,10 @@ FIND_SOURCE_END:
 [链接](https://leetcode.cn/problems/sZ59z6/description/)
 
 比较简单，直接运用BFS模板即可
+
+## LCP 0067 装饰树【中等】
+
+[链接](https://leetcode.cn/problems/KnLfVT/description/)
+
+题目非常简单，你只需要在BFS遍历过程中在非叶子结点下放加上对应的装饰结点即可。代码略
+
