@@ -270,6 +270,8 @@ TreeNode* BuildTree(vector<int> &pre, int preBeg, int preEnd,
 
 这个题目比较简单，核心是先通过DFS遍历找到一条路径，再判断该路径是否为伪回文路径即可，代码略。
 
+## LeetCode 2331 计算布尔二叉树的值【简单】
+[链接](https://leetcode.cn/problems/evaluate-boolean-binary-tree/description/)
 
-
+这个题目比较简单，直接运用简单的DFS遍历即可。
 

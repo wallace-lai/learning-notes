@@ -263,5 +263,35 @@ func searchMatrix(matrix [][]int, target int) bool {
 }
 ```
 
-## 参考资料
-1. labuladong的算法小抄
+## LeetCode 2476 二叉搜索树最近节点查询【中等】
+[链接](https://leetcode.cn/problems/closest-nodes-queries-in-a-binary-search-tree/description/)
+
+解题思路比较清晰明了：
+
+（1）首先使用中序遍历得到一个有序的数组
+
+（2）在有序数组中使用二分搜索查找所查询数在数组中的位置
+
+其中的难点在第（2）步中需要处理一些特殊的边界情况，属于二分搜索常见的dirty work。
+
+核心代码如下：
+
+```cpp
+vector<int> GetRange(vector<int> &val, int q) {
+    int minVal = -1;
+    int maxVal = -1;
+    auto iter = lower_bound(val.begin(), val.end(), q);
+    if (iter != val.end()) {
+        maxVal = *iter;
+        if (*iter == q) {
+            minVal = *iter;
+            return vector<int>{minVal, maxVal};
+        }
+    }
+    if (iter != val.begin()) {
+        minVal = *(--iter);
+    }
+
+    return vector<int>{minVal, maxVal};
+}
+```
