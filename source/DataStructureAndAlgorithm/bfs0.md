@@ -579,6 +579,11 @@ FIND_SOURCE_END:
 
 从源点开始进行BFS搜索即可，只要能达到目的点说明存在有效路径。
 
+## LeetCode 2583 二叉树中的第 K 大层和【中等】
+[链接](https://leetcode.cn/problems/kth-largest-sum-in-a-binary-tree/description/)
+
+题目比较简单，属于BFS模板的简单应用，但是需要注意整数溢出的问题。
+
 
 ## LCP 0007 传递信息【简单】
 [链接](https://leetcode.cn/problems/chuan-di-xin-xi/description/)
