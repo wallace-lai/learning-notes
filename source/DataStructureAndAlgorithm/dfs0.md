@@ -4,7 +4,10 @@
 发布：2024-02-15 </br>
 更新：2024-02-15 <br>
 
-## LeetCode 0094 二叉树的中序遍历
+## LeetCode 0094 二叉树的中序遍历【简单】
+
+[链接](https://leetcode.cn/problems/binary-tree-inorder-traversal/description/)
+
 求二叉树中序遍历的递归法很简单，在这里不赘述。这里只探索迭代法，因为迭代法相对更困难一点。
 
 ![二叉树](../media/images/DataStructureAndAlgorithm/dfs0.png)
@@ -119,7 +122,9 @@ TreeNode *Build(vector<int> &post, int postBeg, int postEnd, vector<int> &in, in
 }
 ```
 
-## LeetCode 0144 二叉树的前序遍历
+## LeetCode 0144 二叉树的前序遍历【简单】
+[链接](https://leetcode.cn/problems/binary-tree-preorder-traversal/description/)
+
 前序遍历指的是按照**根左右**的顺序遍历二叉树中的结点，前序遍历用迭代法实现相对比较简单，只需要在遍历根结点的时候将左右子树放入栈中作为下一步遍历的起始结点即可。其代码实现如下所示：
 
 ```cpp
@@ -151,7 +156,8 @@ vector<int> preorderTraversal(TreeNode* root) {
 }
 ```
 
-## LeetCode 0145 二叉树的后序遍历
+## LeetCode 0145 二叉树的后序遍历【简单】
+[链接](https://leetcode.cn/problems/binary-tree-postorder-traversal/description/)
 
 后序遍历指的是按照**左右根**的顺序遍历二叉树中的结点，观察前序和后序遍历的不同。如果将前序遍历进行逆序，那么得到的顺序是**右左根**，和后序遍历的差别在于左右的顺序不同而已。
 
@@ -183,6 +189,39 @@ vector<int> postorderTraversal(TreeNode* root) {
 
     reverse(result.begin(), result.end());
     return result;
+}
+```
+
+## LeetCode 0235 二叉搜索树的最近公共祖先【中等】
+[链接](https://leetcode.cn/problems/lowest-common-ancestor-of-a-binary-search-tree/description/)
+
+解题思路如下：
+
+（1）从根结点开始遍历
+
+（2）如果根结点的值大于p和q的值，说明p和q在根结点的左子树中，将遍历的当前的结点移动到根结点的左子树
+
+（3）如果根结点的值小于q和q的值，说明p和q在根结点的右子树中，将遍历的当前的结点移动到根结点的右子树
+
+（4）如果不满足要求（2）和（3）说明当前的结点就是p和q开始分岔的结点，当前结点就是p和q的最近公共祖先结点
+
+核心代码如下：
+
+```cpp
+TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+    TreeNode *curr = root;
+
+    while (true) {
+        if (p->val < curr->val && q->val < curr->val) {
+            curr = curr->left;
+        } else if (p->val > curr->val && q->val > curr->val) {
+            curr = curr->right;
+        } else {
+            break;
+        }
+    }
+
+    return curr;
 }
 ```
 
