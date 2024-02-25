@@ -4,6 +4,8 @@
 .. toctree::
     :maxdepth: 1
 
+    cpp-core-guidelines0.md
+
     c-best-practice-0.md
     c-best-practice-1.md
     c-best-practice-2.md
