@@ -5,6 +5,7 @@
     :maxdepth: 2
 
     binary-heap-0.md
+    list0.md
     two-pointers.md
     bit-operation-0.md
     binary-search0.md
