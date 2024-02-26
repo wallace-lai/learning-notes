@@ -303,6 +303,16 @@ TreeNode* BuildTree(vector<int> &pre, int preBeg, int preEnd,
 }
 ```
 
+## LeetCode 0938 二叉搜索树的范围和【简单】
+[链接](https://leetcode.cn/problems/range-sum-of-bst/description/)
+
+思路很简单：
+
+（1）先用中序遍历得到一个有序序列
+
+（2）遍历有序序列，将在`[low, high]`中的元素相加即可
+
+
 ## LeetCode 1457 二叉树中的伪回文路径【中等】
 
 [链接](https://leetcode.cn/problems/pseudo-palindromic-paths-in-a-binary-tree/description/)
