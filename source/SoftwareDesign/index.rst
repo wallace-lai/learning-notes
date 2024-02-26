@@ -5,6 +5,7 @@
     :maxdepth: 1
 
     cpp-core-guidelines0.md
+    cpp-core-guidelines1.md
 
     c-best-practice-0.md
     c-best-practice-1.md
