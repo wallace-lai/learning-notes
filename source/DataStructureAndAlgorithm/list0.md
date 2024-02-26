@@ -4,7 +4,94 @@
 发布：2024-02-25 </br>
 更新：2024-02-25 <br>
 
-## LeetCode 0705 设计哈希集合
+## LeetCode 0160 相交链表【简单】
+[链接](https://leetcode.cn/problems/intersection-of-two-linked-lists/description/)
+
+解题代码如下所示，思路很简单：让两个指针沿着链表往前走，**一旦到头就将指针值替换成另一条链表的头结点**。这样当两个指针相等时，指针所指向的结点就是两链表相交的结点。
+
+```cpp
+ListNode *getIntersectionNode(ListNode *l1, ListNode *l2) {
+    ListNode *A = l1;
+    ListNode *B = l2;
+    while (A != B) {
+        A = (A != nullptr) ? A->next : l2;
+        B = (B != nullptr) ? B->next : l1;
+    }
+
+    return A;
+}
+```
+
+## LeetCode 0206 反转链表【简单】
+[链接](https://leetcode.cn/problems/reverse-linked-list/description/)
+
+反转链表是很多链表题目的基础操作，这里提供两种实现方法。首先是递归法，代码如下所示：
+
+```cpp
+ListNode* reverseList(ListNode* head) {
+    if (head == nullptr || head->next == nullptr) {
+        return head;
+    }
+
+    ListNode *newHead = reverseList(head->next);
+    head->next->next = head;
+    head->next = nullptr;
+    return newHead;
+}
+```
+
+其次是迭代法，代码如下所示：
+
+```cpp
+ListNode* reverseList(ListNode* head) {
+    ListNode dummy(0, nullptr);
+    ListNode *tail;
+
+    while (head != nullptr) {
+        tail = head->next;
+        head->next = dummy.next;
+        dummy.next = head;
+        head = tail;
+    }
+
+    return dummy.next;
+}
+```
+
+## LeetCode 0234 回文链表【简单】
+[链接](https://leetcode.cn/problems/palindrome-linked-list/description/)
+
+最简单的思路是：
+
+（1）先遍历链表，将序列存在vector中；
+
+（2）根据vector中的内容判断是否为回文链表。
+
+但是该方法的空间复杂度是`O(N)`，如果需要空间复杂度为`O(1)`的方法，可以按照下面的步骤来做：
+
+（1）找到链表的中间结点；
+
+（2）对中间结点后的链表部分进行逆序；
+
+（3）比较链表的前后两半部分是否相同，若是则说明是回文串；否则不是
+
+但是这个方法会比较复杂，代码略。
+
+
+
+## LeetCode 0445 两数相加2【中等】
+[链接](https://leetcode.cn/problems/add-two-numbers-ii/description/)
+
+解题思路很简单，先把两个链表逆序，然后再模拟加法计算即可。计算得到新结点以头插法的形式插入这样可以避免对结果链表再次进行逆序。
+
+
+## LeetCode 0705 设计哈希集合【简单】
 [链接](https://leetcode.cn/problems/design-hashset/description/)
 
 解题思路很简单，简单写一个拉链法的哈希桶即可，代码略。
+
+## LeetCode 0706 设计哈希映射【简单】
+[链接](https://leetcode.cn/problems/design-hashmap/description/)
+
+思路很简单，和LeetCode 0705非常类似，代码略。
+
