@@ -4,6 +4,17 @@
 发布：2024-02-25 </br>
 更新：2024-02-25 <br>
 
+## LeetCode 0146 LRU缓存【中等】
+[链接](https://leetcode.cn/problems/lru-cache/description/)
+
+解题思路如下：
+
+（1）首先维护一个双向链表，因为要满足LRU的规则需要频繁地将链表中的元素移动到链表头部，所以选择便于删除的双向链表
+
+（2）还要维护一个key到对应链表结点的映射表，目的是快速地找到在缓存中的key-value对
+
+
+
 ## LeetCode 0160 相交链表【简单】
 [链接](https://leetcode.cn/problems/intersection-of-two-linked-lists/description/)
 
