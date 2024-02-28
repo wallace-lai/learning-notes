@@ -8,6 +8,9 @@
     cpp-perf.md
     cpp-reserve-vs-resize.md
 
+    cpp-core-guidelines0.md
+    cpp-core-guidelines1.md
+
     effective-modern-cpp0.md
     effective-modern-cpp1.md
     effective-modern-cpp2.md
