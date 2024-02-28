@@ -215,4 +215,71 @@ void operator delete(void*) = delete;
 ```
 
 ## 三、智能指针
-未完待续。。。
+
+### 规则1：使用unique_ptr或者shared_ptr表示（对象的）归属
+
+如下所示，使用智能指针，不要使用裸指针。
+
+```cpp
+void f()
+{
+void f()
+{
+    X *p1 {new X};  // bad : p1 will leak
+    auto p2 = make_unique<X>(); // good : unique ownership
+    auto p3 = make_shared<X>(); // good : shared ownership
+}
+}
+```
+
+### 规则2：优选unique_ptr，除非你有共享对象归属的需求才使用shared_ptr
+
+从概念上来讲，unique_ptr要比shared_ptr更加简单，性能更高，行为更可预测。所以，优选unique_ptr。
+
+```cpp
+void f1()
+{
+    // bad example
+    shared_ptr<Base> base = make_shared<Derived>();
+    // 在代码局部使用base，base的引用计数不会超过1，因此应该使用unique_ptr
+}
+```
+
+### 规则3：使用make_shared()创建shared_ptr
+
+```cpp
+shared_ptr<X> p1 { new X{2}};   // bad
+auto p = make_shared<X>(2);     // good
+```
+
+推荐使用make_shared来创建shared_ptr，具体原因没太理解
+
+### 规则4：使用make_unique()创建unique_ptr
+
+利用同规则3
+
+### 规则5：使用weak_ptr打破shared_ptr循环
+
+具体内容在智能指针章节中叙述。
+
+### 规则6：仅在需要表示生命周期语义时使用智能指针作为参数来传递
+
+> Passing a smart pointer transfers or shares ownership and should only be used when ownership semantics are intended. A function that does not manipulate lifetime should take raw pointers or references instead.
+
+只在函数有操作对象生命周期时才使用智能指针作为参数传递，否则只应该传递原始裸指针。
+
+> Passing by smart pointer restricts the use of a function to callers that use smart pointers. A function that needs a widget should be able to accept any widget object, not just ones whose lifetimes are managed by a particular kind of smart pointer.
+
+给函数传递智能指针会限制函数的使用，如果一个函数需要接收一个widget对象，那么理应所有的widget都是可接受的，而不是仅接受一个生命周期由智能指针所管理的对象。
+
+> Passing a shared smart pointer (e.g., std::shared_ptr) implies a run-time cost.
+
+传递share_ptr会增加代码运行时的开销。
+
+### 规则7：使用第三方智能指针时，请遵循std中的智能指针模式
+
+这个一般用在代码中引用了第三方智能指针的场景。
+
+### 规则8：
+
+未完待续
