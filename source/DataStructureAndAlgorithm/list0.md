@@ -13,7 +13,47 @@
 
 （2）还要维护一个key到对应链表结点的映射表，目的是快速地找到在缓存中的key-value对
 
+## LeetCode 0148 排序链表【中等】
+[链接](https://leetcode.cn/problems/sort-list/description/)
 
+对于链表而言，似乎更容易使用归并排序算法对其进行排序。
+
+（1）不断地寻找链表中点，将链表一分为二，对左右两部分递归地进行排序
+
+（2）如果递归到只剩一个结点，直接返回即可
+
+（3）对返回的左右两部分有序链表进行合并操作
+
+核心代码如下：
+
+```cpp
+ListNode *sort(ListNode *head, ListNode *tail) {
+    if (head == nullptr) {
+        return head;
+    }
+    if (head->next == tail) {
+        head->next = nullptr;
+        return head;
+    }
+
+    ListNode *slow = head;
+    ListNode *fast = head;
+    while (fast != tail) {
+        slow = slow->next;
+        fast = fast->next;
+        if (fast != tail) {
+            fast = fast->next;
+        }
+    }
+    ListNode *mid = slow;
+
+    return merge(sort(head, mid), sort(mid, tail));
+}
+
+ListNode* sortList(ListNode* head) {
+    return sort(head, nullptr);
+}
+```
 
 ## LeetCode 0160 相交链表【简单】
 [链接](https://leetcode.cn/problems/intersection-of-two-linked-lists/description/)
