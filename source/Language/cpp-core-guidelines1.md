@@ -280,6 +280,39 @@ auto p = make_shared<X>(2);     // good
 
 这个一般用在代码中引用了第三方智能指针的场景。
 
-### 规则8：
+### 规则8：使用`unique_ptr<Widget>`作为入参来表示归属权的转移
 
-未完待续
+```cpp
+void sink(unique_ptr<Wdiget>);  // takes ownership of the Widget
+void uses(widget*);             // just uses the Widget
+
+// bad example, usually not what you want
+void thinko(const unique_ptr<Widget> &);
+```
+
+上面的`sink`函数的入参表示Widget对象的归属权将转移到`sink`函数中；而`uses`的入参则表示`uses`函数只是使用了Wdiget对象，但它并不会造成Wdiget对象的归属权的转移。
+
+使用`const unique_ptr<Wdiget> &`作为入参无法达成归属权的转移，因为`unique_ptr`具有移动语义，归属权会被转移到`sink`函数的局部入参中。
+
+### 规则9：使用`unique_ptr<Wdiget>`作为入参来表示归属权的保留
+
+```cpp
+void reseat(unique_ptr<Wdiget>&);
+
+// bad example, usually not what you want
+void thinko(const unique_ptr<Widget> &);
+```
+
+因为使用引用的方式，所以`reseat`中不会创建智能指针的副本，所有对智能指针的修改都将反应的原始的指针上。
+
+禁止使用`const unique_ptr<Widget> &`的方式代替`unique_ptr<Widget> &`。
+
+### 规则10：Take a `shared_ptr<Widget>` parameter to express shared ownership
+
+### 规则11：Take a `shared_ptr<Widget>&` parameter to express that a function might reseat the shared pointer
+
+### 规则12：Take a `const shared_ptr<widget>&` parameter to express that it might retain a reference count to the object
+
+### 规则13：Do not pass a pointer or reference obtained from an aliased smart pointer
+
+越来越复杂了
