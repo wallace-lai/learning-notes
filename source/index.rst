@@ -3,6 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
+.. raw:: html
+
+   <p style="text-align:center;font-family: 'Source Code Variable';font-size:20px;">
+      Do the Things Hard but Worth Doing
+   </p>
+
 wallace-lai's notes
 ===============================================
 
