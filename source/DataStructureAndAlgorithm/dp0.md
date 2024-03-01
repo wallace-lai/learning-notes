@@ -108,3 +108,13 @@ func rob(nums []int) int {
 ## LeetCode 0221
 ## LeetCode 0300
 ## LeetCode 0322
+
+## LeetCode 2369 检查数组是否存在有效划分【中等】
+[链接](https://leetcode.cn/problems/check-if-there-is-a-valid-partition-for-the-array/description/)
+
+定义`dp[i]`表示前`i`个元素是否能存在有效划分，则状态转移方程为：
+
+$$
+dp[i] \= (dp[i - 2] && IsValid2(nums[i - 2], nums[i - 1])) ||
+	(dp[i - 3] && IsValid3(nums[i - 3], nums[i - 2], nums[i - 1]))
+$$
