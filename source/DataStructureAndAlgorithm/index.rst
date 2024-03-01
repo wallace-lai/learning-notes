@@ -9,6 +9,6 @@
     two-pointers.md
     bit-operation-0.md
     binary-search0.md
-    dynamic-programming-0.md
+    dp0.md
     dfs0.md
     bfs0.md

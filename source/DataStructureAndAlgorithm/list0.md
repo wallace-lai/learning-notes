@@ -4,6 +4,42 @@
 发布：2024-02-25 </br>
 更新：2024-02-25 <br>
 
+## LeetCode 0143 重排链表【中等】
+[链接](https://leetcode.cn/problems/reorder-list/description/)
+
+解题思路如下：
+
+（1）先通过快慢指针将链表分为左右两部分，对右边部分进行逆序
+
+（2）对左边部分和逆序后的右半部分进行merge操作即可
+
+核心代码如下：
+
+```cpp
+void reorderList(ListNode* head) {
+    ListNode *mid = FindMiddle(head);
+
+    ListNode *l1 = head;
+    ListNode *l2 = reverseList(mid->next);
+    mid->next = nullptr;
+
+    ListNode dummy(0, nullptr);
+    ListNode *curr = &dummy;
+    while (l1 != nullptr && l2 != nullptr) {
+        curr->next = l1;
+        l1 = l1->next;
+        curr = curr->next;
+
+        curr->next = l2;
+        l2 = l2->next;
+        curr = curr->next;
+    }
+    curr->next = l1;
+
+    return;
+}
+```
+
 ## LeetCode 0146 LRU缓存【中等】
 [链接](https://leetcode.cn/problems/lru-cache/description/)
 

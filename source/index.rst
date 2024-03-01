@@ -6,7 +6,7 @@
 
 .. raw:: html
 
-   <p style="text-align:center;font-family: 'Source Code Variable';font-size:20px;">
+   <p style="text-align:center;font-family: 'Georgia';font-size:20px;">
       Do the Things Hard but Worth Doing
    </p>
 
