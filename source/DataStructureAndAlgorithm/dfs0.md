@@ -312,6 +312,50 @@ TreeNode* BuildTree(vector<int> &pre, int preBeg, int preEnd,
 
 （2）遍历有序序列，将在`[low, high]`中的元素相加即可
 
+## LeetCode 1022 从根到叶的二进制数之和【简单】
+[链接](https://leetcode.cn/problems/sum-of-root-to-leaf-binary-numbers/description/)
+
+**解题思路：**
+
+利用DFS遍历得到的路径所代表的二进制数是按照数的最高位到最低位排列的，如下所示。
+
+```
+1 -- 0 -- 1
+sum : 1 * 4 + 0 * 2 + 1 * 1 = 5
+```
+
+如果要在遍历的过程中进行求值，可以使用以下的公式。对于上述的路径，计算过程如下。
+
+```
+sum = (sum << 1) + root->val
+
+sum = 0
+sum = (0 << 1) + 1 = 1
+sum = (1 << 1) + 0 = 2
+sum = (2 << 1) + 1 = 5
+```
+
+**核心代码：**
+
+```cpp
+void DFS(TreeNode *root, int sum, int &result) {
+    // leaf node
+    if (root->left == nullptr && root->right == nullptr) {
+        int newSum = (sum << 1) + root->val;
+        result += newSum;
+        return;
+    }
+
+    // non leaf node
+    int newSum = (sum << 1) + root->val;
+    if (root->left != nullptr) {
+        DFS(root->left, newSum, result);
+    }
+    if (root->right != nullptr) {
+        DFS(root->right, newSum, result);
+    }
+}
+```
 
 ## LeetCode 1457 二叉树中的伪回文路径【中等】
 
