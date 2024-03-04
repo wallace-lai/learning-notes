@@ -50,3 +50,47 @@ void push(int x) {
     }
 }
 ```
+
+## LeetCode 0232 用栈实现队列【简单】
+
+[链接](https://leetcode.cn/problems/implement-queue-using-stacks/description/)
+
+解题思路：
+
+用栈实现队列的核心在与如何借助第二个栈，将栈中的逆序元素给转换成顺序元素。可以按照下面的方法完成转换操作：
+
+（1）入队列时，往主栈中push即可
+
+（2）pop和peek时，需要先将主栈中的元素pop出来并重新push进备栈，随后pop或者peek备栈中的首元素即可
+
+核心代码：
+
+```cpp
+void push(int x) {
+    main.push(x);
+}
+
+int pop() {
+    if (backup.empty()) {
+        while (!main.empty()) {
+            backup.push(main.top());
+            main.pop();
+        }
+    }
+
+    int ret = backup.top();
+    backup.pop();
+    return ret;
+}
+
+int peek() {
+    if (backup.empty()) {
+        while (!main.empty()) {
+            backup.push(main.top());
+            main.pop();
+        }
+    }
+
+    return backup.top();
+}
+```
