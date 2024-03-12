@@ -62,3 +62,101 @@ f(p);   // p已经成为了悬空指针，但是f不知道
 ## 条款18：对于独占资源使用unique_ptr
 
 未完待续
+
+## 条款22：当使用Pimpl手法时，请在实现文件中定义特殊成员函数
+
+### Pimpl手法
+
+以下是一个常见的`Widget`类的实现。
+
+```cpp
+// Widget.h
+#include <string>
+#include <vector>
+#include "gadget.h"
+
+class Widget {
+public:
+    Widget();
+    // ..
+
+private:
+    std::string name;
+    std::vector<double> data;
+    Gadget g1, g2, g3;  // Gadget是用户自定义类型
+};
+```
+
+因为`Widget`依赖了`std::string`和`std::vector`以及`Gadget`，所以在编译`Widget`的时候必须将这些头文件包含进来。
+
+（1）首先，这增加了`Wdiget`的编译耗时；
+
+（2）其次，任何一个头文件的内容变动，都将导致类`Widget`的重新编译
+
+为了解决编译耗时的问题，我们可以使用Pimpl手法，如下所示：
+
+```cpp
+// Widget.h
+class Widget {
+public:
+    Widget();
+    // ..
+
+private:
+    struct Impl;
+    Impl *pImpl;
+};
+```
+
+类`Widget`此时不再依赖`std::string`和`std::vector`以及`Gadget`，所以`Widget`的使用者可以不需要因为头文件内容的改动而重新编译程序。类`Widget`的真正实现放在了Widget.cpp中，如下所示。
+
+```cpp
+// Widget.cpp
+#include "Widget.h"
+#include "gadget.h"
+#include <vector>
+#include <string>
+
+struct Widget::Impl {
+    std::string name;
+    std::vector<double> data;
+    Gadget g1, g2, g3;
+};
+
+Widget::Widget() : pImpl(new Impl) {}
+
+Widget::~Widget() { delete pImpl; }
+```
+
+然而上述代码是有问题的，可以使用智能指针优化一下。
+
+```cpp
+// Widget.h
+class Widget {
+public:
+    Widget();
+    // ..
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pImpl;    // 使用智能指针而不是原始指针
+};
+```
+
+```cpp
+// Widget.cpp
+#include "Widget.h"
+#include "gadget.h"
+#include <vector>
+#include <string>
+
+struct Widget::Impl {
+    std::string name;
+    std::vector<double> data;
+    Gadget g1, g2, g3;
+};
+
+Widget::Widget() : pImpl(std::make_unique<Impl>()) {}
+```
+
+此时，析构函数不见了，因为`std::unique_ptr`在自身析构的同时会自动销毁它所指向的对象。

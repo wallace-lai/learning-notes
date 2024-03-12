@@ -1,8 +1,8 @@
-# 【CppCoreGuidelines】C-style programming
+# 【CppCoreGuidelines】C风格编程
 
 作者：wallace-lai <br/>
 发布：2024-02-25 <br/>
-更新：2024-02-25 <br/>
+更新：2024-03-04 <br/>
 
 ## 规则1：优先使用C++而不是C
 
