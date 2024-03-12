@@ -7,6 +7,7 @@
     cpp-snippet.md
     cpp-perf.md
     cpp-reserve-vs-resize.md
+    cpp-modern-features.md
 
     cpp-core-guidelines0.md
     cpp-core-guidelines1.md
