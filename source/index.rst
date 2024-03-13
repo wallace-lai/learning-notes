@@ -6,9 +6,7 @@
 
 .. raw:: html
 
-   <p style="text-align:center;font-family: 'Georgia';font-size:20px;">
-      Do the Things Hard but Worth Doing
-   </p>
+   <p style="text-align:center;">做困难但值得做的事情</p>
 
 wallace-lai's notes
 ===============================================
