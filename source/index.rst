@@ -18,7 +18,6 @@ wallace-lai's notes
    Language/index.rst
    SoftwareDesign/index.rst
    MachineLearning/index.rst
-   WebSecurity/index.rst
    ReadSource/index.rst
    Network/index.rst
    DataStructureAndAlgorithm/index.rst
