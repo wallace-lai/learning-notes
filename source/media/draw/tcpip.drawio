@@ -1,0 +1,87 @@
+<mxfile host="Electron" modified="2024-03-26T16:15:55.098Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/21.2.8 Chrome/112.0.5615.165 Electron/24.2.0 Safari/537.36" etag="Xyb4-Wk4EfIQvBTJgFRZ" version="21.2.8" type="device" pages="2">
+  <diagram name="ipv4-ip-header" id="Cs8gYPYwQowdaciJkWyL">
+    <mxGraphModel dx="1548" dy="895" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="0" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="3EiK8SHB0jFPuvXETLW--16" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="110" y="80" width="640" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--1" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;版本&lt;br&gt;（4位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--2" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;IHL&lt;br&gt;（4位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="80" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--3" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;DS字段&lt;br&gt;（6位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="160" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--4" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;ECN&lt;br&gt;&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="280" width="40" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--5" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;总长度（16位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="320" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--6" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;标识（16位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="80" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--7" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;分片偏移（13位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="380" y="80" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--8" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;标志&lt;br&gt;&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="320" y="80" width="60" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--9" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;生存期（TTL）&lt;br&gt;（8位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="160" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--10" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;协议（8位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="160" y="160" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--11" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;头部校验和（16位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry x="320" y="160" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--12" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;源IP地址（32位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="240" width="640" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--13" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;目的IP地址（32位）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="320" width="640" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--14" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;选项（任意）&lt;br&gt;（可变长度，最多320位即40字节）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="400" width="640" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--15" value="&lt;font face=&quot;Lucida Console&quot; style=&quot;font-size: 18px;&quot;&gt;IP数据（任意）&lt;br&gt;（可变长度，最多524120位即65515字节）&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="3EiK8SHB0jFPuvXETLW--16">
+          <mxGeometry y="480" width="640" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--17" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;0&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="100" y="40" width="30" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--18" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;15&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="390" y="40" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--19" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;16&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="419" y="40" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--20" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;31&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="710" y="40" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--24" value="" style="line;strokeWidth=2;direction=south;html=1;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="100" width="10" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--27" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="83" y="80" width="20" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="3EiK8SHB0jFPuvXETLW--28" value="&lt;font style=&quot;font-size: 18px;&quot; face=&quot;Lucida Console&quot;&gt;基&lt;br&gt;本&lt;br&gt;IP&lt;br&gt;头&lt;br&gt;部&lt;br&gt;（20字节）&lt;br&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry y="210" width="120" height="140" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="82FecOU3hrKxWF31Tx_1" name="ipv6-ip-header">
+    <mxGraphModel dx="1548" dy="895" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
