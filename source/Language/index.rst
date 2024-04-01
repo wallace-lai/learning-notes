@@ -9,6 +9,8 @@
     cpp-reserve-vs-resize.md
     cpp-modern-features.md
 
+    c-stdlib0.md
+
     cpp-core-guidelines0.md
     cpp-core-guidelines1.md
     cpp-core-guidelines2.md

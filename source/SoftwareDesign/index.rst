@@ -4,6 +4,19 @@
 .. toctree::
     :maxdepth: 1
 
+    design-pattern0.md
+    design-pattern1.md
+    design-pattern2.md
+    design-pattern3.md
+    design-pattern4.md
+    design-pattern5.md
+    design-pattern6.md
+    design-pattern7.md
+    design-pattern8.md
+    design-pattern9.md
+    design-pattern10.md
+    design-pattern11.md
+
     c-best-practice-0.md
     c-best-practice-1.md
     c-best-practice-2.md
