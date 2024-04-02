@@ -6,7 +6,7 @@
 
 .. raw:: html
 
-   <p style="text-align:center;">做困难但值得做的事情</p>
+   <p style="text-align:center;">做困难但值得的事情</p>
 
 wallace-lai's notes
 ===============================================
@@ -15,6 +15,7 @@ wallace-lai's notes
    :maxdepth: 2
 
    Unfiled/index.rst
+   DataBase/index.rst
    Language/index.rst
    SoftwareDesign/index.rst
    MachineLearning/index.rst
