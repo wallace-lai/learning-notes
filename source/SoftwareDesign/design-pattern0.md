@@ -1,8 +1,8 @@
 # 【设计模式】简介
 
 作者：wallace-lai <br>
-发布：2024-04-02 <br>
-更新：2042-02-03 <br>
+发布：2019-11-30 <br>
+更新：2024-04-03 <br>
 
 ## 一、设计模式简介
 
@@ -311,6 +311,8 @@ void MainForm::OnPaint(const PaintEventArgs& e) {
 	Form::OnPaint(e);
 }
 ```
+
+![分解与抽象](../media/images/SoftwareDesign/design-pattern0.png)
 
 如果此时需要增加一个绘制圆形的功能，那么采用抽象的方法所需要的更改会明显少于采用分解的方法。也就是说采用抽象的方法能够更好地实现代码复用，更好地抵御需求变更所带来的冲击。
 
