@@ -4,6 +4,10 @@
 .. toctree::
     :maxdepth: 1
 
+    pcap-file-analysis.md
+
+    network-basic.md
+
     http0.md
     http1.md
     http2.md
