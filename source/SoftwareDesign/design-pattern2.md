@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2042-02-02 <br>
+更新：2024-04-09 <br>
 
 现代软件专业分工之后的第一个结果是**框架与应用程序的划分**，组件协作模式通过**晚期绑定**，来实现框架与应用程序之间的松耦合，是二者之间协作时常用的模式。
 
@@ -23,7 +23,7 @@
 
 ### 1.2 定义
 
-**模板方法定义一个操作中的算法的骨架（稳定），而将一些步骤延迟到子类中。模板方法使得子类可以不改变（复用）一个算法的结构即可重定义（override重写）该算法的某些特定步骤**。
+模板方法：**模板方法定义一个操作中的算法的骨架（稳定），而将一些步骤延迟到子类中。模板方法使得子类可以不改变（复用）一个算法的结构即可重定义（override重写）该算法的某些特定步骤**。
 
 下面是一个采用结构化设计思想的案例：
 
@@ -182,7 +182,7 @@ int main() {
 如何在运行时根据需要透明地更改对象的算法？将算法与对象本身解耦，从而避免上述问题？
 
 ### 2.2 定义
-**定义一系列算法，把它们一个个封装起来，并且使它们可互相替换（变化）。该模式使得算法可独立于使用它的客户程序（稳定）而变化（扩展、子类化）**。
+策略模式：**定义一系列算法，把它们一个个封装起来，并且使它们可互相替换（变化）。该模式使得算法可独立于使用它的客户程序（稳定）而变化（扩展、子类化）**。
 
 如下所示，有同样功能的两段代码。
 
@@ -302,8 +302,269 @@ public:
 （4）如果Strategy对象没有实例变量，那么各个上下文可以共享同一个Strategy对象，从而节省对象开销；
 
 ## 三、观察者模式
+### 3.1 动机
+在软件构建过程中，我们需要为某些对象建立一种“通知依赖关系”——一个对象（目标对象）的状态发生改变，所有依赖对象（观察者对象）都将得到通知。如果这样的依赖关系过于紧密，将使得软件不能很好地抵御变化。
+
+使用面向对象的技术，可以将这种依赖关系弱化，并形成一种稳定的依赖关系。从而实现软件体系结构的松耦合。
+
+### 3.2 模式定义
+观察者模式：**定义对象间的一种一对多（变化）的依赖关系，以便当一个对象（Subject）的状态发生改变时，所有依赖于它的对象（Observer）都得到通知并自动更新**。
+
+假如我们要做一个文件分割器的小软件，它的初始源码可以是以下的形式。此时，还不涉及到观察者模式。
+
+```cpp
+class FileSplitter {
+    string filePath;
+    int fileNumber;
+
+public:
+    FileSplitter(const string &filePath, int num) :
+        filePath(filePath), fileNumber(num) {}
+
+    void split(void) {
+        // 1. 读取大文件
+
+        // 2. 分批次向小文件中写入
+        for (int i = 0; i < fileNumber; i++) {
+            // ...
+        }
+    }
+};
+
+class MainForm : public Form
+{
+    TextBox *txtFilePath;
+    TextBox *txtFileNumber;
+
+public:
+    void Button1_Click() {
+        string filePath = txtFilePath->getText();
+        int number = atoi(txtFileNumber->getText().c_str());
+
+        FileSplitter splitter(filePath, number);
+        splitter.split();
+    }
+};
+```
+
+假如要添加一个进度条的功能，最简单的方法是如下的写法。
+
+```cpp
+class FileSplitter {
+    string filePath;
+    int fileNumber;
+    ProgressBar *progressBar;   // 新增
+
+public:
+    FileSplitter(const string &filePath, int num, ProgressBar *progress) :
+        filePath(filePath), fileNumber(num), progressBar(progress) {}
+
+    void split(void) {
+        // 1. 读取大文件
+
+        // 2. 分批次向小文件中写入
+        for (int i = 0; i < fileNumber; i++) {
+            // ...
+
+            // 新增
+            if (progressBar != nullptr) {
+                progressBar->setValue((i + 1) / fileNumber);
+            }
+        }
+    }
+};
+
+class MainForm : public Form
+{
+    TextBox *txtFilePath;
+    TextBox *txtFileNumber;
+
+    ProgressBar *progress;  // 新增
+
+public:
+    void Button1_Click() {
+        string filePath = txtFilePath->getText();
+        int number = atoi(txtFileNumber->getText().c_str());
+
+        // 更改
+        FileSplitter splitter(filePath, number, progress);
+        splitter.split();
+    }
+};
+```
+
+上述代码存在什么问题？
+
+它违反了依赖倒置原则，即抽象不应该依赖于实现细节，实现细节应该依赖于抽象。`FileSplitter`中新增的`progressBar`就是实现细节。一旦提示的形式变了（这是很容易发生的），不再是进度条了，那么上述代码就需要跟着变动。
+
+仔细分析一下，`progressBar`在代码起到的作用是**通知**，如何用一种更加抽象的机制来起到通知的功能呢？下面的代码就不再违反依赖倒置原则了，原因在于`FilterSplitter`由原来的依赖具体`ProgressBar`类变成了依赖抽象的通知机制`IProgress`。
+
+此时的代码是只有一个观察者的观察者模式，观察者对象是`MainForm`，目标对象是`FileSplitter`。
+
+```cpp
+// 抽象的通知机制
+class IProgress {
+public:
+    virtual void DoProgress(float value) = 0;
+    virtual ~IProgress() {}
+};
+
+class FileSplitter {
+    string filePath;
+    int fileNumber;
+    // ProgressBar *progressBar;  // 具体的通知控件
+    IProgress *progress;    // 抽象的通知机制
+
+public:
+    FileSplitter(const string &filePath, int num, IProgress *progress) :
+        filePath(filePath), fileNumber(num), progress(progress) {}
+
+    void split(void) {
+        // 1. 读取大文件
+
+        // 2. 分批次向小文件中写入
+        for (int i = 0; i < fileNumber; i++) {
+            // ...
+
+            // 新增
+            if (progress != nullptr) {
+                float value = (i + 1) / fileNumber;
+                progress->DoProgress(value);
+            }
+        }
+    }
+};
+
+// 主继承 + 接口的继承形式
+class MainForm : public Form, public IProgress
+{
+    TextBox *txtFilePath;
+    TextBox *txtFileNumber;
+
+    ProgressBar *progress;  // 新增
+
+public:
+    void Button1_Click() {
+        string filePath = txtFilePath->getText();
+        int number = atoi(txtFileNumber->getText().c_str());
+
+        // 更改
+        FileSplitter splitter(filePath, number, this);
+        splitter.split();
+    }
+
+    virtual void DoProgress(float value) {
+        progress->setValue(value);
+    }
+};
+```
+
+但是，如果需要有多个观察者对象又该怎么办呢？上述的代码显然就不好支持多个观察者对象了。此时就需要进行多观察者改造了，具体代码如下。至此，终于得到了完整的观察者模式代码。
+
+```cpp
+// 抽象的通知机制
+class IProgress {
+public:
+    virtual void DoProgress(float value) = 0;
+    virtual ~IProgress() {}
+};
+
+
+class FileSplitter {
+    string filePath;
+    int fileNumber;
+    // ProgressBar *progressBar;  // 具体的通知控件
+    // IProgress *progress;    // 抽象的通知机制
+    list<IProgress*> progress;  // 观察者列表，支持多个观察者
+
+public:
+    FileSplitter(const string &filePath, int num) :
+        filePath(filePath), fileNumber(num) {}
+
+    // 添加观察者
+    void AddIProgress(IProgress *i) {
+        progress.add(i);
+    }
+
+    // 移除观察者
+    void RemoveIProgress(IProgress *i) {
+        progress.remove(i);
+    }
+
+    // 移除观察者
+    void split(void) {
+        // 1. 读取大文件
+
+        // 2. 分批次向小文件中写入
+        for (int i = 0; i < fileNumber; i++) {
+            // ...
+
+            float value = (i + 1) / fileNumber;
+            OnProgress(value);
+        }
+    }
+
+protected:
+    void OnProgress(float value) {
+        list<IProgress*>::iterator iter = progress.begin();
+        while (iter != progress.end()) {
+            (*iter)->DoProgress(value);
+        }
+    }
+};
+
+// 主继承 + 接口的继承形式
+class MainForm : public Form, public IProgress
+{
+    TextBox *txtFilePath;
+    TextBox *txtFileNumber;
+
+    ProgressBar *progressBar;  // 新增
+
+public:
+    void Button1_Click() {
+        string filePath = txtFilePath->getText();
+        int number = atoi(txtFileNumber->getText().c_str());
+
+        ConsoleNotifier cn;
+
+        FileSplitter splitter(filePath, number);
+        splitter.AddIProgress(this);
+        splitter.AddIProgress(&cn);
+        
+        splitter.split();
+
+        splitter.RemoveIProgress(&cn);
+        splitter.RemoveIProgress(this);
+    }
+
+    virtual void DoProgress(float value) {
+        progressBar->setValue(value);
+    }
+};
+
+class ConsoleNotifier : public IProgress {
+public:
+    virtual void DoProgress(float value) {
+        cout << ".";
+    }
+};
+```
 
 
 
+### 3.3 要点总结
 
-未完待续...
+（1）观察者模式的结构如下所示，红色部分为稳定部分，蓝色部分为不稳定部分。
+
+![观察者模式的结构](../media/images/SoftwareDesign/design-pattern4.png)
+
+Subject为目标对象，其中的Attach表示往其中新增观察者，Detach表示移除观察者，Notify表示对所有的观察者进行通知。Observer为观察者对象。
+
+（2）使用面向对象的抽象，Observer模式使得我们可以独立地改变目标与观察者，从而使二者之间的依赖关系达到松耦合。
+
+（3）目标发送通知时，无需指定观察者，通知（可以携带通知信息作为参数）会自动传播。
+
+（4）观察者自己决定是否需要订阅通知，目标对象对此一无所知。
+
+（5）Observer模式是基于事件的UI框架中非常常用的设计模式，也是MVC模式的一个重要组成部分。
