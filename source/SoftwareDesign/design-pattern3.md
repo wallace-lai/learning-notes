@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2024-04-14 <br>
+更新：2024-04-17 <br>
 
 在软件组件的设计中，如果责任划分的不清晰，使用继承得到的结果往往是随着需求的变化，子类急剧膨胀，同时充斥着重复代码，这时的关键是划清责任。
 
@@ -179,7 +179,7 @@ class CryptoBufferedMemoryStream : public MemoryStream {
 
 ![继承情况](../media/images/SoftwareDesign/design-pattern5.png)
 
-
+【未完待续...】
 
 ### 1.3 总结
 
@@ -866,4 +866,4 @@ void Process()
 （4）Bridge模式的应用一般在“两个非常强的变化维度”，有时一个类也有多于两个的变化维度，这时可以使用Bridge的扩展模式；
 
 
-未完待续...
+【未完待续...】
