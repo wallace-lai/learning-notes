@@ -6,7 +6,7 @@
 
 .. raw:: html
 
-   <p style="text-align:center;">做困难但值得的事情</p>
+   <p style="text-align:center;">做困难但值得的事情</br>专注软件基础和人工智能领域</p>
 
 2024-04计划：
 
