@@ -1,4 +1,4 @@
-# 【Effective Modern C++】第二章：auto
+# 【EMC】第二章：auto
 
 作者：wallace-lai </br>
 发布：2024-02-28 </br>

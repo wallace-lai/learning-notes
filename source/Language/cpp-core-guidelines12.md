@@ -1,4 +1,4 @@
-# 【CppCoreGuidelines】Templates and generic programming
+# 【CCG】Templates and generic programming
 
 作者：wallace-lai <br/>
 发布：2024-02-25 <br/>

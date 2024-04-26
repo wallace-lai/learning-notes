@@ -1,4 +1,4 @@
-# 【Effective Modern C++】第七章：并发
+# 【EMC】第七章：并发
 
 作者：wallace-lai </br>
 发布：2024-02-28 </br>

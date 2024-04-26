@@ -1,4 +1,4 @@
-# 【CppCoreGuidelines】Class and class hierarchies
+# 【CCG】Class and class hierarchies
 
 作者：wallace-lai <br/>
 发布：2024-02-25 <br/>

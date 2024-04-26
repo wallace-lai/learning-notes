@@ -1,4 +1,4 @@
-# 【Effective Modern C++】第四章：智能指针
+# 【EMC】第四章：智能指针
 
 作者：wallace-lai </br>
 发布：2024-02-28 </br>
