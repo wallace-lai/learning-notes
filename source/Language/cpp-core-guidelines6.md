@@ -1,4 +1,4 @@
-# 【CppCoreGuidelines】资源管理
+# 【CCG】资源管理
 
 作者：wallace-lai <br/>
 发布：2024-02-27 <br/>

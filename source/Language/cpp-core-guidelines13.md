@@ -1,4 +1,4 @@
-# 【CppCoreGuidelines】C风格编程
+# 【CCG】C风格编程
 
 作者：wallace-lai <br/>
 发布：2024-02-25 <br/>

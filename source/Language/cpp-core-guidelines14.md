@@ -1,4 +1,4 @@
-# 【CppCoreGuidelines】源文件
+# 【CCG】源文件
 
 作者：wallace-lai <br/>
 发布：2024-02-25 <br/>

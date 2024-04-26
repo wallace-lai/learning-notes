@@ -4,7 +4,7 @@
 .. toctree::
     :maxdepth: 1
 
-    remain.md
+    schedule.md
     architect-roadmap.md
     ReadTheDocs-Test.md
 
