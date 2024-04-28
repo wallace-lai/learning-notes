@@ -100,8 +100,142 @@ int main()
 如何在不更改类层次结构的前提下，在运行时根据需要透明地为类层次结构上的各个类动态地添加新的操作，从而避免上述问题？
 
 ### 2.2 定义
+访问器模式：**表示一个作用于某对象结构中的各元素的操作。使得可以在不改变（稳定）各元素的类的前提下定义（扩展）作用于这些元素的新操作（变化）**。
+
+假设我们有一个基类和两个子类如下所示：
+
+```cpp
+class Element {
+public:
+    virtual void Func1() = 0;
+    virtual ~Element() {}
+};
+
+class ElementA : public Element {
+public:
+    void Func1() override {
+        // ...
+    }
+};
+
+class ElementB : public Element {
+public:
+    void Func1() override {
+        // ***
+    }
+};
+```
+
+随着业务的发展，我们需要给基类增加功能，需要新增Func2，那么你所有的子类得跟着一起新增。这违背了开闭原则。
+
+```cpp
+class Element {
+public:
+    virtual void Func1() = 0;
+    virtual void Func2() = 0;       // 新增
+    virtual ~Element() {}
+};
+
+class ElementA : public Element {
+public:
+    void Func1() override {
+        // ...
+    }
+
+    // 新增
+    void Func2() override {
+        // ...
+    }
+};
+
+class ElementB : public Element {
+public:
+    void Func1() override {
+        // ***
+    }
+
+    // 新增
+    void Func2() override {
+        // ***
+    }
+};
+```
+
+可以使用访问器模式提前做好设计，如下所示：
+```cpp
+class Visitor;
+
+class Element {
+public:
+    virtual void accept(Visitor &vis) = 0;
+    virtual ~Element() {}
+};
+
+class ElementA : public Element {
+public:
+    void accept(Visitor &vis) override {
+        vis.visitElementA(*this);
+    }
+};
+
+class ElementB : public Element {
+public:
+    void accept(Visitor &vis) override {
+        vis.visitElementB(*this);
+    }
+};
+
+class Visitor {
+public:
+    virtual void visitElementA(ElementA &ele) = 0;
+    virtual void visitElementB(ElementB &ele) = 0;
+    virtual ~Visitor() {}
+};
+```
+
+上述的设计是稳定的，假如我们需要添加处理方式，可以这样做。
+
+```cpp
+class Visitor1 : public Visitor {
+public:
+    void visitElementA(ElementA &ele) override {
+        // ...
+    }
+
+    void visitElementB(ElementB &ele) override {
+        // ...
+    }
+};
+
+class Visitor2 : public Visitor {
+public:
+    void visitElementA(ElementA &ele) override {
+        // ...
+    }
+
+    void visitElementB(ElementB &ele) override {
+        // ...
+    }
+};
+
+int main()
+{
+    Visitor2 vis;
+    ElementB ele;
+    ele.accept(vis);
+}
+```
+
+<p style="color:red;">注：没看懂它好在哪里...假如要新增Element的子类，Visitor岂不是也变得不稳定了？</p>
+
+访问器模式的结构图如下所示，访问器模式成立的前提是Elment和Visitor是稳定的（这就回答了上面的问题），这个是访问器模式的缺点。Element有几个子类，Visitor中就得有多少个方法，这两者稳定后的蓝色部分是可变（扩展）部分。
+
+![访问器模式结构图](../media/images/SoftwareDesign/design-pattern15.png)
+
 
 ### 2.3 总结
+（1）访问器模式通过所谓的双重分发（double dispatch）来实现在不更改Element类层次结构的前提下，在运行时透明地为类层次结构上的各个类动态添加新的操作（支持变化）。
 
+（2）所谓双重分发即访问器模式中间包括了两个多态分发（注意其中的多态机制）：第一个为accept方法的多态辨析；第二个为visitElementX方法的多态辨析。
 
-未完待续...
+（3）Visitor模式的最大缺点在于扩展类层次结构（增添新的Element子类），会导致Visitor类的改变。因此Visitor模式适用于Element类层次结构稳定，而其中的操作却经常面临频繁改动。
