@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2024-04-17 <br>
+更新：2024-04-30 <br>
 
 在软件组件的设计中，如果责任划分的不清晰，使用继承得到的结果往往是随着需求的变化，子类急剧膨胀，同时充斥着重复代码，这时的关键是划清责任。
 
@@ -179,7 +179,93 @@ class CryptoBufferedMemoryStream : public MemoryStream {
 
 ![继承情况](../media/images/SoftwareDesign/design-pattern5.png)
 
-【未完待续...】
+我们先用组合代替继承，得到了下面的代码：
+```cpp
+// 加密文件流
+class CryptoFileStream {
+    FileStream *stream;
+public:
+    virtual char Read(int num) {
+        // 额外的加密操作
+        stream->Read(num);  // 读取文件流
+    }
+
+    virtual void Seek(int pos) {
+        // 额外的加密操作
+        stream->Seek(pos);  // 定位内存流
+    }
+
+    virtual void Write(char data) {
+        // 额外的加密操作
+        stream->Write(data);  // 写内存流
+    }
+};
+
+// 加密网络流
+class CryptoNetworkStream  {
+    NetworkStream *stream;
+public:
+    virtual char Read(int num) {
+        // 额外的加密操作
+        stream->Read(num);  // 读取文件流
+    }
+
+    virtual void Seek(int pos) {
+        // 额外的加密操作
+        stream->Seek(pos);  // 定位内存流
+    }
+
+    virtual void Write(char data) {
+        // 额外的加密操作
+        stream->Write(data);  // 写内存流
+    }
+};
+
+// 加密内存流
+class CryptoMemoryStream {
+    MemoryStream *stream;
+public:
+    virtual char Read(int num) {
+        // 额外的加密操作
+        stream->Read(num);  // 读取文件流
+    }
+
+    virtual void Seek(int pos) {
+        // 额外的加密操作
+        stream->Seek(pos);  // 定位内存流
+    }
+
+    virtual void Write(char data) {
+        // 额外的加密操作
+        stream->Write(data);  // 写内存流
+    }
+};
+```
+
+此时，你会发现这三个类之间的区别仅在于指针的类别是不一样的。但同时它们也是Stream基类的子类，于是我们可以将这三个指针类别替换成基类Stream的指针。最终这三个类化简成了一个类，如下所示：
+
+```cpp
+class CryptoStream : public Stream {
+    Stream *stream;
+public:
+    virtual char Read(int num) {
+        // 额外的加密操作
+        stream->Read(num);  // 读取文件流
+    }
+
+    virtual void Seek(int pos) {
+        // 额外的加密操作
+        stream->Seek(pos);  // 定位内存流
+    }
+
+    virtual void Write(char data) {
+        // 额外的加密操作
+        stream->Write(data);  // 写内存流
+    }
+};
+```
+
+其余情形也是一样的做法，不再赘述。
 
 ### 1.3 总结
 
@@ -864,6 +950,3 @@ void Process()
 （3）Bridge模式有时类似于多继承方案，但是多继承方案往往违背单一职责（即一个类只有一个变化的原因），复用性较差。Bridge模式是比多继承方案更好的解决办法；
 
 （4）Bridge模式的应用一般在“两个非常强的变化维度”，有时一个类也有多于两个的变化维度，这时可以使用Bridge的扩展模式；
-
-
-【未完待续...】
