@@ -133,6 +133,119 @@ int main()
 （3）迭代器的健壮性考虑：遍历的同时更改迭代器所在的集合结构，会导致问题
 
 ## 三、责任链模式
+### 3.1 动机
+在软件构建过程中，一个请求可能被多个对象处理，但是每个请求在运行时只能有一个接受者，如果显式指定，将必不可少地带来请求发送者与接受者的紧耦合。
 
+如何使请求的发送者不需要指定具体的接受者？让请求的接受者自己在运行时决定来处理请求，从而使两者解耦。
 
-未完待续...
+### 3.2 定义
+责任链模式：**使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系。将这些对象连成一条链，并沿着这条链传递请求，直到有一个对象处理它为止**。
+
+下面给出一个责任链模式的案例，不难看出代码的用意。
+
+```cpp
+enum class RequestType {
+    REQ_HANDLER1,
+    REQ_HANDLER2,
+    REQ_HANDLER3,
+};
+
+class Request {
+    string desc;
+    RequestType type;
+public:
+    Request(const string &desc, RequestType type) :
+        desc(desc), type(type) {}
+
+    RequestType GetRequestType() const { return type; }
+
+    const string &GetDesc() const { return desc; }
+};
+
+class ChainHandler {
+    ChainHandler *next;
+
+    void SendRequestToNextHandler(const Request &req) {
+        if (next != nullptr) {
+            next->handle(req);
+        }
+    }
+
+protected:
+    virtual bool CanHandleRequest(const Request &req) = 0;
+
+    virtual void ProcessRequest(const Request &req) = 0;
+
+public:
+    ChainHandler() { next = nullptr; }
+
+    void SetNextChain(ChainHandler *next) { next = next; }
+
+    void handle(const Request &req) {
+        if (CanHandleRequest(req)) {
+            ProcessRequest(req);
+        } else {
+            SendRequestToNextHandler(req);
+        }
+    }
+};
+
+class Handler1 : public ChainHandler {
+protected:
+    bool CanHandleRequest(const Request &req) override {
+        return req.GetRequestType() == RequestType::REQ_HANDLER1;
+    }
+
+    void ProcessRequest(const Request &req) override {
+        cout << "Handler1 is handle request : " << req.GetDesc() << endl;
+    }
+};
+
+class Handler2 : public ChainHandler {
+protected:
+    bool CanHandleRequest(const Request &req) override {
+        return req.GetRequestType() == RequestType::REQ_HANDLER2;
+    }
+
+    void ProcessRequest(const Request &req) override {
+        cout << "Handler2 is handle request : " << req.GetDesc() << endl;
+    }
+};
+
+class Handler3 : public ChainHandler {
+protected:
+    bool CanHandleRequest(const Request &req) override {
+        return req.GetRequestType() == RequestType::REQ_HANDLER3;
+    }
+
+    void ProcessRequest(const Request &req) override {
+        cout << "Handler3 is handle request : " << req.GetDesc() << endl;
+    }
+};
+
+int main()
+{
+    Handler1 h1;
+    Handler2 h2;
+    Handler3 h3;
+
+    h1.SetNextChain(&h2);
+    h2.SetNextChain(&h3);
+
+    Request req("Process task ...", RequestType::REQ_HANDLER3);
+    h1.handle(req);
+
+    return 0;
+}
+```
+
+责任链模式的结构图如下所示：
+
+![责任链结构图](../media/images/SoftwareDesign/design-pattern18.png)
+
+### 3.3 总结
+（1）责任链模式的应用场合在于一个请求可能有多个接受者，但是最后真正的接受者只有一个，这时候请求发送者与接受者的耦合可能无法抵御变化，职责链的目的就是将二者解耦，从而更好地应对变化。
+
+（2）应用了责任链模式后，对象的职责分派将更具灵活性。我们可以在运行时动态添加、修改请求处理的处理职责。
+
+（3）如果请求传递到责任链的末尾仍得不到处理，应该有一个合理的缺省机制。这也是每一个接受对象的责任，而不是发出请求的对象的责任。
