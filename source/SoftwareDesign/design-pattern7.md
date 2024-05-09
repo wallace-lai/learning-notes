@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2024-04-27 <br>
+更新：2024-05-10 <br>
 
 在组件构建过程中，某些对象的状态经常面临变化，如何对这些变化进行有效管理？同时又维持高层模块的稳定？状态变化类模式为这一问题提供了一种解决方案。
 
@@ -19,8 +19,183 @@
 如何在运行时根据对象的状态来透明地更改对象行为？而不会为对象操作和状态转化之间引入紧耦合？
 
 ### 1.2 定义
+状态模式：**允许一个对象在其内部状态改变时改变它的行为。从而使得对象看起来似乎修改了其行为**。
+
+假如有一个网络处理程序，需要根据网络状态的不同有不同的操作，那么它可能会写成如下的形式。
+
+```cpp
+enum NetworkState {
+    Network_Open,
+    Network_Close,
+    Network_Connect,
+};
+
+class NetworkProcessor {
+    NetworkState state;
+public:
+    void Op1() {
+        if (state == Network_Open) {
+            // ***
+            state = Network_Close;
+        } else if (state == Network_Close) {
+            // ...
+            state = Network_Connect;
+        } else if (state == Network_Connect) {
+            // $$$
+            state = Network_Open;
+        }
+    }
+
+    void Op2() {
+        if (state == Network_Open) {
+            // ******
+            state = Network_Connect;
+        } else if (state == Network_Close) {
+            // ......
+            state = Network_Open;
+        } else if (state == Network_Connect) {
+            // $$$$$$
+            state = Network_Close;
+        }
+    }
+
+    void Op3() {
+        // ...
+    }
+};
+```
+
+但是很显然，上述代码是违背开闭原则的。因为如果新增一个NetworkState，那么将会造成大量的代码改动。不妨先改动成以下的形式。
+
+```cpp
+class NetworkState {
+public:
+    NetworkState *pNext;
+    virtual void Op1() = 0;
+    virtual void Op2() = 0;
+    virtual void Op3() = 0;
+
+    virtual ~NetworkState() {}
+};
+
+class OpenState : public NetworkState {
+    static NetworkState *mInst;
+public:
+    static NetworkState *GetInstance() {
+        if (mInst == nullptr) {
+            mInst = new OpenState();
+        }
+        return mInst;
+    }
+
+    void Op1() override {
+        // ...
+        pNext = CloseState::GetInstance();
+    }
+
+    void Op2() override {
+        // ***
+        pNext = ConnectState::GetInstance();
+    }
+
+    void Op3() override {
+        // ---
+        pNext = OpenState::GetInstance();
+    }
+};
+
+class CloseState : public NetworkState {
+    static NetworkState *mInst;
+public:
+    static NetworkState *GetInstance() {
+        if (mInst == nullptr) {
+            mInst = new OpenState();
+        }
+        return mInst;
+    }
+
+    void Op1() override {
+        // ...
+        pNext = /* change state */;
+    }
+
+    void Op2() override {
+        // ***
+        pNext = /* change state */;
+    }
+
+    void Op3() override {
+        // ---
+        pNext = /* change state */;
+    }
+};
+
+class ConnectState : public NetworkState {
+    static NetworkState *mInst;
+public:
+    static NetworkState *GetInstance() {
+        if (mInst == nullptr) {
+            mInst = new OpenState();
+        }
+        return mInst;
+    }
+
+    void Op1() override {
+        // ...
+        pNext = /* change state */;
+    }
+
+    void Op2() override {
+        // ***
+        pNext = /* change state */;
+    }
+
+    void Op3() override {
+        // ---
+        pNext = /* change state */;
+    }
+};
+
+class NetworkProcessor {
+    NetworkState *pState;
+public:
+    NetworkProcessor(NetworkState *pState) {
+        this->pState = pState;
+    }
+
+    void Operation1() {
+        // ...
+        pState->Op1();
+        pState = pState->pNext;
+    }
+
+    void Operation2() {
+        // ...
+        pState->Op2();
+        pState = pState->pNext;
+    }
+
+    void Operation3() {
+        // ...
+        pState->Op3();
+        pState = pState->pNext;
+    }
+};
+```
+
+此时，代码就符合了开闭原则。
+
+
+状态模式的结构图如下所示。
+
+![状态模式的结构图](../media/images/SoftwareDesign/design-pattern19.png)
 
 ### 1.3 总结
+（1）状态模式将所有与一个特定状态相关的行为都放入一个状态的子类对象中，在对象状态切换时，切换相应的对象；但同时维持状态的接口，这样实现了具体操作与状态转换之间的解耦。
+
+（2）为不同状态引入不同的对象使得状态转换变得更加明确，而且可以保证不会出现状态不一致的情况，因为转换时原子性的，即要么彻底转换过来，要么不转换。
+
+（3）如果状态对象没有实例变量，那么各个上下文可以共享同一个状态对象，从而节省对象开销。
 
 ## 二、备忘录模式
 ### 2.1 动机
@@ -92,7 +267,3 @@ int main()
 （2）备忘录模式的核心是信息隐藏，即Originator需要向外界隐藏信息，保持其封装性。但同时又需要将状态保持到外界。
 
 （3）由于现代语言运行时（如C#、Java等）都具有相当的对象序列化支持，因此往往采用效率较高、又较容易正确实现的序列化方案来实现备忘录模式。
-
-
-
-未完待续...
