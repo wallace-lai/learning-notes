@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2042-02-17 <br>
+更新：2024-05-14 <br>
 
 通过对象创建模式绕开new操作，来避免对象创建过程中所导致的紧耦合（依赖具体类），从而支持对象创建的稳定。它是接口抽象之后的第一步工作。
 
@@ -157,7 +157,7 @@ public:
 抽象工厂：**提供一个接口，让该接口负责创建一些列相关或者相互依赖的对象，无需指定它们具体的类**。
 
 
-假设我们有一个基于SqlServer的简单数据访问层代码，如下所示。【pending】
+假设我们有一个基于SqlServer的简单数据访问层代码，如下所示：
 
 ```cpp
 class EmployeeDAO {
@@ -178,11 +178,153 @@ public:
 };
 ```
 
-【未完待续】
+这个时候我们发现，EmployeeDAO里面出现了对具体类SqlCommand的依赖，这是不符合面向对象设计原则的。为了改造成面向接口编程的形式，可以做如下改动。
+
+```cpp
+// 为了支持变化，新增数据库访问相关基类
+class IDBConnection {
+
+};
+
+class IDBCommand {
+
+};
+
+class IDataReader {
+
+};
+
+// 支持SQL Server
+class SqlConnection : public IDBConnection {
+
+};
+
+class SqlCommand : public IDBCommand {
+
+};
+
+class SqlDataReader : public IDataReader {
+
+};
+
+// 支持Oracle
+class OracleConnection : public IDBConnection {
+
+};
+
+class OracleCommand : public IDBCommand {
+
+};
+
+class OracleDataReader : public IDataReader {
+
+};
+
+// 此时，问题出现，左侧是虚基类指针右侧是具体类
+class EmployeeDAO {
+public:
+    vector<EmployeeDO> GetEmployees() {
+        IDBConnection *conn = new SqlConnection();
+        conn->ConnectionString = "...";
+
+        IDBCommand *cmd = new SqlCommand();
+        cmd->CommandText = "...";
+
+        IDataReader *reader = cmd->ExecuteReader();
+        while (reader->Read()) {
+            // ...
+        }
+
+    }
+};
+```
+
+这个时候我们又发现有新问题出现，左侧是虚基类指针，但是右侧仍然是具体类。假如我们使用上一节中的简单工厂模式，如下所示：
+
+```cpp
+class EmployeeDAO {
+    IDBCommandFactory *dbCommandFactory;
+    IDBConnectFactory *dbConnectFactory;
+    IDBReaderFactory *dbReaderFactory;
+
+public:
+    vector<EmployeeDO> GetEmployees() {
+        IDBConnection *conn = dbConnectFactory->CreateConnect();
+        conn->ConnectionString = "...";
+
+        IDBCommand *cmd = dbCommandFactory->CreateCommand();
+        cmd->CommandText = "...";
+
+        IDataReader *reader = dbReaderFactory->CreateReader();
+        while (reader->Read()) {
+            // ...
+        }
+
+    }
+};
+```
+
+这个时候我们会发现，上述代码仍然存在问题：Command、Connection和Reader之间是有关联性的，我们不能传入sqlServer的Command去搭配Oracle的Connection。怎么解决？这个时候就需要抽象工厂模式了。将有相关性的三个简单工厂放在一个抽象工厂中。如下所示：
+
+```cpp
+// 抽象工厂基类
+class IDBFactory {
+public:
+    virtual IDBConnection *CreateConnection() = 0;
+    virtual IDBCommand *CreateCommand() = 0;
+    virtual IDataReader *CreateDataReader() = 0;
+};
+
+// SQL Server的抽象工厂
+class SqlServerDBFactory : public IDBFactory {
+public:
+    virtual IDBConnection *CreateConnection() { /* 实现 */};
+    virtual IDBCommand *CreateCommand() { /* 实现 */};
+    virtual IDataReader *CreateDataReader() { /* 实现 */};
+};
+
+// Oracle的抽象工厂
+class OracleDBFactory : public IDBFactory {
+public:
+    virtual IDBConnection *CreateConnection() { /* 实现 */};
+    virtual IDBCommand *CreateCommand() { /* 实现 */};
+    virtual IDataReader *CreateDataReader() { /* 实现 */};
+};
+
+class EmployeeDAO {
+    IDBFactory *factory;
+public:
+    vector<EmployeeDO> GetEmployees() {
+        IDBConnection *conn = factory->CreateConnection();
+        conn->ConnectionString = "...";
+
+        IDBCommand *cmd = factory->CreateCommand();
+        cmd->CommandText = "...";
+
+        IDataReader *reader = factory->CreateDataReader();
+        while (reader->Read()) {
+            // ...
+        }
+
+    }
+};
+```
+
+至此，问题被圆满解决！
 
 ### 2.3 总结
 
 （1）抽象工厂的结构如下所示
+
+![抽象工厂结构图](../media/images/SoftwareDesign/design-pattern20.png)
+
+- AbstractFactory相当于是IDBFactory，是稳定的；
+
+- ConcreteFactory1和ConcreteFactory2相当于是SqlServerDBFactory和OracleDBFactory；
+
+- AbstractProductA和AbstractProductB相当于是IDBConnection和IDBCommand等数据库访问中的基类；
+
+- ProductA1和ProductA2则相当于是SqlConnection和SqlCommand；
 
 （2）如果没有应对**多系列对象构建**的变化需求，则没有必要使用Abstract Factory模式，这时候使用简单工厂模式完全可以；
 
