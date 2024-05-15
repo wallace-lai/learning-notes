@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2024-05-14 <br>
+更新：2024-05-15 <br>
 
 通过对象创建模式绕开new操作，来避免对象创建过程中所导致的紧耦合（依赖具体类），从而支持对象创建的稳定。它是接口抽象之后的第一步工作。
 
@@ -341,10 +341,142 @@ public:
 
 如何应对这种变化？如何向**客户程序（使用这些对象的程序）**隔离出这些易变的对象，从而使得**依赖这些易变对象的客户程序**不随着需求改变而改变？
 
-【未完待续】
 
 ### 3.2 定义
+原型模式：**使用原型实例指定创建对象的种类，然后通过拷贝这些原型来创建新的对象**。
+
+假设使用原型模式来改写简单工厂模式中的例子：
+
+```cpp
+class ISplitter {
+public:
+    virtual void split() = 0;
+    virtual ISplitter *clone() = 0; // 通过克隆自己来创建对象
+    virtual ~ISplitter() {}
+};
+
+class MainForm : public Form {
+    ISplitter *prototype;
+
+public:
+    MainForm(ISplitter *prototype) {
+        this->prototype = prototype;
+    }
+
+    void Button1_Click() {
+        ISplitter *splitter = prototype->clone();   // 克隆原型
+        splitter->split();
+    }
+};
+```
+
+为什么要使用上述的原型模式？它的好处在哪里，为什么不能继续使用原来的简单工厂模式？原因在于原型模式适用于某些结构复杂的对象的创建，如果类的创建步骤很简单，那么使用简单工厂方法即可。
+
+如果对象的创建过程非常复杂，涉及到多个中间状态的保存，那么使用原型模式。
+
+原型模式的结构图如下所示：
+
+![原型模式的结构图](../media/images/SoftwareDesign/design-pattern20.png)
 
 ### 3.3 总结
 
-未完待续...
+（1）原型模式通用用于隔离类对象的使用者和具体类型（易变类）之间的耦合关系，它同样要求这些易变类拥有稳定的接口。
+
+（2）原型模式对于如何创建易变类的实体对象采用原型克隆的方法来做，它使得我们可以非常灵活地动态创建拥有某些稳定接口的新对象——它所需的工作仅是注册一个新类的对象（即原型），然后在需要任何需要的地方clone即可。
+
+（3）原型模式中的clone方法可以利用某些框架中的序列化来实现深拷贝。
+
+## 4. 构建器
+
+### 4.1 动机
+在软件系统中，有时候面临着一个复杂对象的创建工作，其通常由各个部分的子对象用一定的算法构成；由于需求的变化，这个复杂对象的各个部分经常面临着剧烈的变化，但是将它们组合在一起的算法却相对稳定。
+
+如何应对这种变化？如何提供一种封装机制来隔离出复杂对象的各个部分的变化，从而保持系统中的稳定构建算法不随着需求的改变而改变？
+
+### 4.2 定义
+
+构建器模式：**将一个复杂对象的构建与其表示相分离，使得同样的构建过程（稳定）可以创建不同的表示（变化）**。
+
+假设有一个构建过程非常复杂的House类，如下所示：
+```cpp
+class House {
+public:
+    void Init() {
+        this->BuildPart1();
+
+        for (int i = 0; i < 4; i++) {
+            this->BuildPart2();
+        }
+
+        bool flag = this->BuildPart3();
+        if (flag) {
+            this->BuildPart4();
+        }
+
+        this->BuildPart5();
+    }
+
+    virtual ~House() {}
+protected:
+    virtual void BuildPart1() = 0;
+    virtual void BuildPart2() = 0;
+    virtual bool BuildPart3() = 0;
+    virtual void BuildPart4() = 0;
+    virtual void BuildPart5() = 0;
+};
+
+class StoneHouse : public House {
+protected:
+    virtual void BuildPart1() {}
+    virtual void BuildPart2() {}
+    virtual bool BuildPart3() {}
+    virtual void BuildPart4() {}
+    virtual void BuildPart5() {}
+};
+```
+
+这个时候我们一般会将复杂的House构建过程给分离出来，如下所示：
+```cpp
+class HouseBuilder {
+public:
+    void Init() {
+        this->BuildPart1();
+
+        for (int i = 0; i < 4; i++) {
+            this->BuildPart2();
+        }
+
+        bool flag = this->BuildPart3();
+        if (flag) {
+            this->BuildPart4();
+        }
+
+        this->BuildPart5();
+    }
+
+    // 返回构建的House对象
+    House *GetResult() {
+        return this->pHouse;
+    }
+
+    virtual ~HouseBuilder() {}
+protected:
+    House *pHouse;
+    virtual void BuildPart1() = 0;
+    virtual void BuildPart2() = 0;
+    virtual bool BuildPart3() = 0;
+    virtual void BuildPart4() = 0;
+    virtual void BuildPart5() = 0;
+};
+```
+
+构建器的结构图：
+![构建器模式](../media/images/SoftwareDesign/design-pattern22.png)
+
+### 4.3 总结
+
+（1）构建器模式主要用于分步骤构建一个复杂的对象。在这其中分步骤是一个稳定的算法，而复杂对象的各个部分则经常变化。
+
+（2）变化点在哪里，封装哪里——构建器模式主要在于应对复杂对象各个部分的频繁需求变动。其缺点在于难以应对分步骤构建算法的需求变动。
+
+（3）在构建器模式中，要注意不同语言中构造器内调用虚函数的差别。
