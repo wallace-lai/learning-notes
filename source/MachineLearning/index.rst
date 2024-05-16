@@ -16,4 +16,6 @@
     zheda-ml0.md
     zheda-ml1.md
 
+    tsinghua-llm0.md
+
     llm0.md
