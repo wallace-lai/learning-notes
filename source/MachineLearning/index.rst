@@ -4,6 +4,7 @@
 .. toctree::
     :maxdepth: 1
 
+    watermelon3.md
     watermelon5.md
     watermelon8.md
 
