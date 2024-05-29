@@ -4,6 +4,11 @@
 .. toctree::
     :maxdepth: 1
 
+    linux-c0.md
+    linux-c1.md
+    linux-c2.md
+    linux-c3.md
+
     cpp-snippet.md
     cpp-perf.md
     cpp-reserve-vs-resize.md
