@@ -4,6 +4,8 @@
 .. toctree::
     :maxdepth: 2
 
+    purc0.md
+
     folly-0.md
 
     libuv-0.md
