@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-04-02 <br>
-更新：2024-04-09 <br>
+更新：2024-06-05 <br>
 
 现代软件专业分工之后的第一个结果是**框架与应用程序的划分**，组件协作模式通过**晚期绑定**，来实现框架与应用程序之间的松耦合，是二者之间协作时常用的模式。
 
@@ -568,3 +568,183 @@ Subject为目标对象，其中的Attach表示往其中新增观察者，Detach�
 （4）观察者自己决定是否需要订阅通知，目标对象对此一无所知。
 
 （5）Observer模式是基于事件的UI框架中非常常用的设计模式，也是MVC模式的一个重要组成部分。
+
+### 3.4 实践
+
+手写观察者模式
+
+```c
+// xxx_send_event.h
+
+#ifndef XXX_SEND_EVENT_H_
+#define XXX_SEND_EVENT_H_
+
+// event type to send
+typedef struct _xxx_event {
+    int value;
+} xxx_event;
+
+// function to do real send task
+typedef void (*xxx_send_func)(xxx_event *event);
+
+// register observer id here
+typedef enum _xxx_obsr_id {
+    OBSR_ID_1,
+    OBSR_ID_2,
+    OBSR_ID_3,
+
+    OBSR_ID_BUTT
+} xxx_obsr_id;
+
+int xxx_register_observer(xxx_obsr_id id, xxx_send_func func);
+int xxx_unregister_observer(xxx_obsr_id id);
+
+void xxx_send_event(void);
+
+#endif /* XXX_SEND_EVENT_H_ */
+```
+
+```c
+// xxx_send_event.c
+
+#include <stdio.h>
+#include <assert.h>
+#include "xxx_send_event.h"
+
+#define ATTACH_TRUE  (1)
+#define ATTACH_FALSE (0)
+
+typedef struct _xxx_observer {
+    int is_attach;
+    xxx_send_func func;
+} xxx_observer;
+
+static xxx_observer g_obsr_table[OBSR_ID_BUTT];
+
+int xxx_register_observer(xxx_obsr_id id, xxx_send_func func)
+{
+    if (id < 0 || id >= OBSR_ID_BUTT || func == NULL) {
+        fprintf(stderr, "[ERROR] register observer failed due to invalid param.");
+        return -1;
+    }
+
+    if (g_obsr_table[id].is_attach == ATTACH_TRUE) {
+        fprintf(stderr, "[WARN] observer(id:%d) registered before, re-register now.", id);
+    }
+
+    g_obsr_table[id].is_attach = ATTACH_TRUE;
+    g_obsr_table[id].func = func;
+
+    return 0;
+}
+
+int xxx_unregister_observer(xxx_obsr_id id)
+{
+    if (id < 0 || id >= OBSR_ID_BUTT) {
+        fprintf(stderr, "[ERROR] unregister observer(id: %d) failed due to invalid param", id);
+        return -1;
+    }
+
+    if (g_obsr_table[id].is_attach == ATTACH_FALSE) {
+        fprintf(stderr, "[WARN] observer(id:%d) unregistered before, re-unregister now.", id);
+    }
+
+    g_obsr_table[id].is_attach = ATTACH_FALSE;
+    g_obsr_table[id].func = NULL;
+
+    return 0;
+}
+
+void xxx_send_event(void)
+{
+    xxx_event event;
+    xxx_send_func func;
+
+    for (int i = 0; i < OBSR_ID_BUTT; i++) {
+        if (g_obsr_table[i].is_attach == ATTACH_TRUE) {
+            event.value = i;
+            func = g_obsr_table[i].func;
+            assert(func != NULL);
+            func(&event);
+        }
+    }
+
+    return;
+}
+```
+
+注意：
+
+（1）所有xxx的观察者都必须在`xxx_obsr_id`中注册其ID；
+
+（2）在xxx的观察者注册发送函数时需要提供ID号和对应的函数指针；
+
+（3）目标xxx通过`xxx_send_event`接口按照ID号的注册顺序依次进行通知；
+
+```c
+// test.c
+
+#include <stdio.h>
+#include <stddef.h>
+#include <assert.h>
+#include "xxx_send_event.h"
+
+void func1(xxx_event *event)
+{
+    assert(event != NULL);
+    printf("Observer 1 received event(value:%d).\n", event->value);
+}
+
+void func2(xxx_event *event)
+{
+    assert(event != NULL);
+    printf("Observer 2 received event(value:%d).\n", event->value);
+}
+
+void func3(xxx_event *event)
+{
+    assert(event != NULL);
+    printf("Observer 3 received event(value:%d).\n", event->value);
+}
+
+int main()
+{
+    xxx_register_observer(OBSR_ID_1, func1);
+    xxx_register_observer(OBSR_ID_2, func2);
+    xxx_register_observer(OBSR_ID_3, func3);
+    xxx_send_event();
+
+    printf("------\n");
+
+    xxx_unregister_observer(OBSR_ID_3);
+    xxx_send_event();
+
+    printf("------\n");
+
+    xxx_unregister_observer(OBSR_ID_1);
+    xxx_send_event();
+
+    printf("------\n");
+
+    xxx_register_observer(OBSR_ID_3, func3);
+    xxx_send_event();
+
+    return 0;
+}
+```
+
+测试结果如下：
+
+```
+Observer 1 received event(value:0).
+Observer 2 received event(value:1).
+Observer 3 received event(value:2).
+------
+Observer 1 received event(value:0).
+Observer 2 received event(value:1).
+------
+Observer 2 received event(value:1).
+------
+Observer 2 received event(value:1).
+Observer 3 received event(value:2).
+```
