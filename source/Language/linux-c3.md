@@ -578,7 +578,7 @@ if (pid < 0) {
 
 （5）在父进程结束前，先使用`shmdt`去deattach共享内存，最后使用`shmctl`删除该共享内存实例
 
-## P243 ~ P250 进程间通信 - 套接字
+## P243 ~ P247 进程间通信 - 套接字
 
 ### 1. 跨主机传输要注意的问题
 
@@ -740,7 +740,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 
 ### 4. 报式套接字案例
 
-[完整源码]()
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/basic)
 
 该案例使用UDP在主从两段发送数据，核心代码如下：
 
@@ -852,3 +852,126 @@ exit(0);
 
 （1）使用sendto给接收端发送消息
 
+## P248 进程间通信 - 套接字（多播）
+
+报式套接字（UDP）可以支持广播和多播/组播功能，具体而言：
+
+（1）广播功能包括：
+
+- 全网广播
+
+- 子网广播
+
+（2）多播 / 组播
+
+### 1. 涉及的接口
+（1）设置和读取socket选项
+
+```c
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+
+int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+```
+
+### 1. 全网广播的实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/bcast)
+
+下面是发送端的代码改动：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) { /* ... */ }
+
+    // 打开广播标志
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+
+    // ...
+
+    // 往全网广播地址255.255.255.255发送
+    inet_pton(AF_INET, "255.255.255.255", &raddr.sin_addr.s_addr);
+```
+
+解释：
+
+（1）创建socket以后需要使用`setsockopt`打开广播标志
+
+（2）发送IP使用全网广播地址255.255.255.255即可
+
+对于接收端，同样要打开广播标志，如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0 /* IPPROTO_UDP */);
+    if (sock < 0) { /* ... */ }
+
+    // 打开广播标志
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+```
+
+### 2. 多播 / 组播的实现
+
+多播实现的基本原理：
+
+（1）发送方创建多播组，并往该组发送消息
+
+（2）接收方加入多播组，从多播组中接收消息
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/mbcast)
+
+协议的改动如下：
+
+```c
+#define MTGROUP  "224.2.2.2"
+```
+
+解释：
+
+（1）协议需要新增组播地址
+
+（2）所有支持组播的设备默认都在224.0.0.1这个网段，所以往224.0.0.1发送消息相当于是全网广播
+
+
+发送方的改动如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) { /* ... */ }
+
+    struct ip_mreqn mreq;
+    inet_pton(AF_INET, MTGROUP, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, "0.0.0.0", &mreq.imr_address);
+    mreq.imr_ifindex = if_nametoindex("eth0");
+
+    ret = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreq, sizeof(mreq));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）发送方使用`setsockopt()`创建组播
+
+接收方的改动如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0 /* IPPROTO_UDP */);
+    if (sock < 0) { /* ... */ }
+
+    struct ip_mreqn mreq;
+    inet_pton(AF_INET, MTGROUP, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, "0.0.0.0", &mreq.imr_address);
+    mreq.imr_ifindex = if_nametoindex("eth0");
+
+    ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）接收方使用`IP_ADD_MEMBERSHIP`标志加入发送方创建的组播中
