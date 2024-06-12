@@ -578,7 +578,7 @@ if (pid < 0) {
 
 （5）在父进程结束前，先使用`shmdt`去deattach共享内存，最后使用`shmctl`删除该共享内存实例
 
-## P243 ~ P250 进程间通信 - 套接字
+## P243 ~ P247 进程间通信 - 套接字
 
 ### 1. 跨主机传输要注意的问题
 
@@ -740,7 +740,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 
 ### 4. 报式套接字案例
 
-[完整源码]()
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/basic)
 
 该案例使用UDP在主从两段发送数据，核心代码如下：
 
@@ -852,3 +852,194 @@ exit(0);
 
 （1）使用sendto给接收端发送消息
 
+## P248 ~ P250 进程间通信 - 套接字（多播）
+
+报式套接字（UDP）可以支持广播和多播/组播功能，具体而言：
+
+（1）广播功能包括：
+
+- 全网广播
+
+- 子网广播
+
+（2）多播 / 组播
+
+### 1. 涉及的接口
+（1）设置和读取socket选项
+
+```c
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+
+int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+```
+
+### 1. 全网广播的实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/bcast)
+
+下面是发送端的代码改动：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) { /* ... */ }
+
+    // 打开广播标志
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+
+    // ...
+
+    // 往全网广播地址255.255.255.255发送
+    inet_pton(AF_INET, "255.255.255.255", &raddr.sin_addr.s_addr);
+```
+
+解释：
+
+（1）创建socket以后需要使用`setsockopt`打开广播标志
+
+（2）发送IP使用全网广播地址255.255.255.255即可
+
+对于接收端，同样要打开广播标志，如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0 /* IPPROTO_UDP */);
+    if (sock < 0) { /* ... */ }
+
+    // 打开广播标志
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+```
+
+### 2. 多播 / 组播的实现
+
+多播实现的基本原理：
+
+（1）发送方创建多播组，并往该组发送消息
+
+（2）接收方加入多播组，从多播组中接收消息
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/dgram/mbcast)
+
+协议的改动如下：
+
+```c
+#define MTGROUP  "224.2.2.2"
+```
+
+解释：
+
+（1）协议需要新增组播地址
+
+（2）所有支持组播的设备默认都在224.0.0.1这个网段，所以往224.0.0.1发送消息相当于是全网广播
+
+
+发送方的改动如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) { /* ... */ }
+
+    struct ip_mreqn mreq;
+    inet_pton(AF_INET, MTGROUP, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, "0.0.0.0", &mreq.imr_address);
+    mreq.imr_ifindex = if_nametoindex("eth0");
+
+    ret = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreq, sizeof(mreq));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）发送方使用`setsockopt()`创建组播
+
+接收方的改动如下所示：
+
+```c
+    int sock = socket(AF_INET, SOCK_DGRAM, 0 /* IPPROTO_UDP */);
+    if (sock < 0) { /* ... */ }
+
+    struct ip_mreqn mreq;
+    inet_pton(AF_INET, MTGROUP, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, "0.0.0.0", &mreq.imr_address);
+    mreq.imr_ifindex = if_nametoindex("eth0");
+
+    ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）接收方使用`IP_ADD_MEMBERSHIP`标志加入发送方创建的组播中
+
+## P251 ~ P252 进程间通信 - UDP传输分析
+
+### 1. UDP协议存在的问题
+
+使用UDP协议实现FTP程序可能存在的问题：
+
+（1）**丢包**
+
+丢包几乎不可能是由TTL耗尽造成的，大概率是由网络阻塞造成的。为了降低丢包率，可以使用流控机制。但流控只能使用闭环流控机制，否则起不到缓解网络阻塞的现象。
+
+（2）**等待时间RTT**
+
+![RTT](../media/images/Language/linux-c1.png)
+
+如图所示，假设S端（服务端）在发送完数据包之后等待C端（请求端）的ACK的过程中，ACK消息发生了丢失。面对这种情况，S端应该如何处理？此时，**可以在S端每次发包之后设置一个等待时间RTT**。一旦在RTT时间内没有收到C端的ACK消息，则重新发送上一个包。
+
+（3）**包序列号SEQ**
+
+![包SEQ](../media/images/Language/linux-c2.png)
+
+接着上个问题继续讨论。如图所示，假设S端重新发包并被C端成功接收了，这个时候C端实际上接收到了2个一样的包。但是C端本身并不能确定第二个包是一个新包还是因为ACK丢失而接收到的重传的旧包！所以，**S端要为每一个包都赋予一个不同的编号SEQ**，这样C端通过校验第二个包的SEQ可以得知它是重传的旧包，丢弃该包即可。
+
+（4）**ACK序列号SEQ**
+
+![ACK SEQ](../media/images/Language/linux-c3.png)
+
+接着上个问题继续讨论。如图所示，假设：
+
+1. C端发送DATA1的ACK时遇到了网络阻塞（不是ACK彻底丢失）；
+
+2. S端在超过RTT时间后重传DATA1，且被C端成功接收（会被C端丢弃）；
+
+3. S端在成功接收到C端的ACK后，发送下一个包DATA2；
+
+4. DATA2在发送给C端的过程中彻底丢失了，且此时S端收到了最初的ACK；
+
+此时，S端会误以为DATA2成功被C端接收，于是发送下一个包DATA3，由此**造成DATA2在C端的永久丢失**！
+
+要解决这个问题，必须让S端能够识别不同的ACK，所以**ACK消息也需要赋予不同的编号SEQ**。
+
+### 2. 基于UDP的ftp程序实现
+
+所谓停等式流控指的是发送端需要先收到上一个包被接收端成功接收的消息ACK之后，才会发送下一个包。这其中存在着等待收取ACK的阶段，因此叫停等式。
+
+加入停等式流控后，ftp程序的请求端的状态机如下所示：
+
+![请求端端状态机](../media/images/Language/linux-c0.png)
+
+解释：
+
+（1）请求端开始时首先进入SEND PATH状态，将请求的文件路径发送给服务端；
+
+（2）请求端随后进入RECV DATA状态，等待并接收服务端发送的包；
+
+（3）请求端一旦成功接收到了包，则进入SEND ACK状态，向服务端发送ACK；
+
+（4）请求端发送ACK完毕后，进入OUTPUT状态，将接收到的包内容给打印出来；
+
+（5）请求端再次进入RECV DATA状态，等待并接收服务端发送的下一个包；
+
+（6）请求端如果收到EOT消息，则进入EOT状态，然后结束整个流程
+
+注意：对于存在失败可能性的状态，如果失败则进入FAILED状态，FAILED状态用图中的FAILED标签表示。
+
+【pending】
+
+## P253 进程间通信 - TCP传输协议分析
