@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-05 <br>
+更新：2024-06-13 <br>
 
 进程间通信对应APUE上的章节为：
 
@@ -1043,3 +1043,245 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 【pending】
 
 ## P253 进程间通信 - TCP传输协议分析
+
+### 1. 三次握手
+
+在UDP传输分析那节中，我们知道为了保证传输安全性，无论是数据包还是ACK，都必须有编号。TCP在**三次握手**的过程中，解决了编号协商的问题。
+
+![三次握手](../media/images/Language/linux-c4.png)
+
+如图所示，TCP的三次握手过程可以简述为：
+
+（1）C端首先发起SYN握手消息，同时附带初始序列号SEQ为N - 1；
+
+<p style="color:red">注意：这属于三次握手中的第一次握手，目的是告诉S端我C端的初始序列号SEQ的值</p>
+
+（2）S端接收到该SYN消息后，发送ACK作为回复，同时附带序列号SEQ为N；
+
+<p style="color:red">注意：这属于三次握手中第二次握手的第一个包，表示S端已经知道了C端的初始SEQ值为N</p>
+
+（3）S端在发出第一个ACK包之后，还会发送一个SYN握手消息，同时附带初始序列号SEQ为M - 1；
+
+<p style="color:red">注意：这属于三次握手中第二次握手的第二个包，目的是告诉C端我S端的初始序列号SEQ的值</p>
+
+（4）C端收到SYN消息后，发送ACK作为回复，同时附带序列号为M；
+
+<p style="color:red">注意：这属于三次握手中第三次握手，此时通信双方彼此确认了对方的数据包初始序列号，三次握手完成</p>
+
+（5）通信双方开始进行数据传输；
+
+### 2. SYN Flood攻击
+如图右侧所示，当完成了三次握手的第二步时，该连接在S端被认为属于半连接状态。此时，连接的信息会被保存在S端的半连接池当中。一旦S端收到了第4个包，如果S端能在半连接池里找到对应的连接信息则说明三次握手完成。
+
+由于S端半连接池的存在，因此存在一种叫做半连接洪水的网络攻击（SYN Flood）。具体而言是**攻击者使用大量的“肉鸡”向S端发送第一次握手消息，而不发送第三次握手消息，进而导致S端的半连接池被占满**。于是S端便不能再响应更多的连接请求。
+
+S端应对SYN Flood攻击的常见办法：
+
+（1）对连接池中的信息设置生命周期，比如1s，在生命周期内没有收到第三次握手消息则将其剔除；
+
+（2）加大半连接池的容量；
+
+（3）“拉黑”只发送第一次握手消息的IP地址；
+
+但实际上以上的方法全是治标不治本，想要彻底解决SYN Flood攻击，**唯一办法是弃用半连接池**。半连接池没了，你还怎么攻击？
+
+如果不用半连接池，那应该如何保证S端收到ACK回复时能够确认该ACK对应的连接确实完成了三次握手的前面两步呢？答案是**用cookie**。具体如下：
+
+（1）S端收到第一次握手后，使用下面的公式计算一个哈希值作为cookie发送给C端；
+
+```
+hash((Cip + Cport + Sip + Sport + proto) | salt)
+```
+
+即：使用C端的ip、C端的port、S端的ip、S端的port以及使用的协议proto之和或上盐值salt，对该结果取哈希值作为cookie发送给C端。
+
+（2）要求C端将收到的cookie值在第三次握手中发送回来，S端使用当前的盐值salt利用相同的公式计算，看是否和cookie匹配。如果匹配则三次握手成功，否则不成功
+
+注意：盐值salt是由内核产生的，一秒钟变一次。S端如果使用当前的salt计算出来结果不匹配，则用上一秒的salt值继续匹配。如果还匹配不上，说明这个第三次握手消息可能已经超时了。
+
+## P254 ~ P256 进程间通信 - 流式套接字详解
+
+流式套接字（TCP）的特点：
+
+（1）能保证收到的消息和消息内容是正确的；
+
+（2）能保证点对点的通信形式；
+
+### 1. 流式套接字通信步骤
+
+TCP通信的步骤：
+
+**C端（主动端）**：
+
+（1）获取socket
+
+（2）给socket取得地址（可省略）
+
+（3）发送连接
+
+（4）收 / 发消息
+
+（5）关闭
+
+**S端（被动端）**：
+
+（1）获取socket
+
+（2）给socket取得地址
+
+（3）设置socket为监听模式
+
+（4）接收连接
+
+（5）收 / 发消息
+
+（6）关闭
+
+### 2. 基于流式套接字的echo服务器实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/stream/basic)
+
+我们使用TCP实现一个简单的echo服务器，即当C端发送请求时，S端返回当前的时间戳。
+
+**协议**：
+
+```c
+#define SERVER_PORT     "1989"
+#define FORMAT_STAMP    "Recv server stamp : %lld\r\n"
+```
+
+解释：
+
+（1）协议侧只需要约定S端的端口号以及S端返回的消息格式即可
+
+**客户端**：
+
+```c
+    if (argc < 2) { /* ... */ }
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) { /* ... */ }
+
+    // bind();
+```
+
+解释：
+
+（1）发送ip由命令行传入
+
+（2）创建socket后，C端的bind操作可以省略，让操作系统自动分配可用端口号
+
+```c
+    struct sockaddr_in raddr;
+    raddr.sin_family = AF_INET;
+    raddr.sin_port = htons(atoi(SERVER_PORT));
+    inet_pton(AF_INET, argv[1], (void *)&raddr.sin_addr);
+
+    ret = connect(sock, (void *)&raddr, sizeof(raddr));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）使用connect和S端建立连接，需要给定S端的端口号和ip地址（由命令行传入）
+
+```c
+    static char buffer[STAMPSIZE];
+    memset(buffer, 0, STAMPSIZE);
+
+    // 1. use recv
+    // ssize_t len = recv(sock, buffer, STAMPSIZE, 0);
+    // if (len < 0) { /* ... */ }
+    // printf("%s\r\n", buffer);
+
+    // 2. use io
+    FILE *fp = fdopen(sock, "r");
+    if (fp == NULL) { /* ... */ }
+    if (fgets(buffer, STAMPSIZE, fp) != NULL) {
+        printf("%s\r\n", buffer);
+    }
+    fclose(fp);
+```
+
+解释：
+
+（1）C端接收S端发来的数据有两种方式，一种是使用recv接口
+
+（2）另一种是贯彻“一切皆文件”的思想，使用io接口来读取描述符中的内容
+
+**服务端**：
+
+```c
+    int sock = socket(AF_INET, SOCK_STREAM, 0 /* IPPROTO_TCP, IPPROTO_SCTP */);
+    if (sock < 0) { /* ... */ }
+
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+
+    struct sockaddr_in laddr;
+    laddr.sin_family = AF_INET;
+    laddr.sin_port = htons(atoi(SERVER_PORT));
+    inet_pton(AF_INET, "0.0.0.0", (void *)&laddr.sin_addr);
+
+    ret = bind(sock, (void *)&laddr, sizeof(laddr));
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）服务端首先取得socket
+
+（2）设置sock为SO_REUSEADDR，这是为了在S端程序关闭后立即重新启动时bind操作不出错
+
+（3）使用bind绑定S端的ip和端口号
+
+```c
+    ret = listen(sock, 200);
+    if (ret < 0) { /* ... */ }
+
+    struct sockaddr_in raddr;
+    socklen_t raddr_len = 0;
+    static char ipstr[IPSTRSIZE];
+    while (1) {
+        ret = accept(sock, (void *)&raddr, &raddr_len);
+        if (ret < 0) { /* ... */ }
+
+        memset(ipstr, 0, IPSTRSIZE);
+        inet_ntop(AF_INET, &raddr.sin_addr, ipstr, IPSTRSIZE);
+        printf("Recv connection from client (%s:%d).\n", ipstr, ntohs(raddr.sin_port));
+
+        server_execute(ret);
+        close(ret);
+    }
+```
+
+解释：
+
+（1）S端使用listen监听C端的连接请求
+
+（2）S端一旦和C端的连接建立，则accept会返回C端的addr信息以及文件描述符ret
+
+（3）S端打印C端的ip和端口号，随后执行server_execute操作
+
+```c
+    static void server_execute(int fd)
+    {
+        static char buffer[STAMPSIZE];
+        memset(buffer, 0, STAMPSIZE);
+
+        int len = sprintf(buffer, FORMAT_STAMP, (long long)time(NULL));
+        int ret = send(fd, buffer, len, 0);
+        if (ret < 0) {
+            perror("send()");
+            exit(1);
+        }
+    }
+```
+
+解释：
+
+（1）S端要做的很简单，往C端的文件描述符中写入本地的时间戳即可
+
+（2）S端调用send将时间戳发送给C端
+
