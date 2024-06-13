@@ -8,6 +8,8 @@
     linux-c1.md
     linux-c2.md
     linux-c3.md
+    linux-c4.md
+    linux-c5.md
 
     cpp-snippet.md
     cpp-perf.md
