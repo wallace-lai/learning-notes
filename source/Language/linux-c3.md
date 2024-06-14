@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-13 <br>
+更新：2024-06-15 <br>
 
 进程间通信对应APUE上的章节为：
 
@@ -1099,7 +1099,7 @@ hash((Cip + Cport + Sip + Sport + proto) | salt)
 
 注意：盐值salt是由内核产生的，一秒钟变一次。S端如果使用当前的salt计算出来结果不匹配，则用上一秒的salt值继续匹配。如果还匹配不上，说明这个第三次握手消息可能已经超时了。
 
-## P254 ~ P256 进程间通信 - 流式套接字详解
+## P254 ~ P259 进程间通信 - 流式套接字详解
 
 流式套接字（TCP）的特点：
 
@@ -1284,5 +1284,102 @@ TCP通信的步骤：
 （1）S端要做的很简单，往C端的文件描述符中写入本地的时间戳即可
 
 （2）S端调用send将时间戳发送给C端
+
+### 3. 基于流式套接字的echo服务器的并发版本
+
+我们先做一个简单的版本，即在S端改成多进程并发的版本，如下所示：
+```c
+    while (1) {
+        ret = accept(sock, (void *)&raddr, &raddr_len);
+        if (ret < 0) { /* ... */ }
+
+        pid_t pid = fork();
+        if (pid < 0) { /* ... */ }
+
+        if (pid == 0) {
+            // child
+            memset(ipstr, 0, IPSTRSIZE);
+            inet_ntop(AF_INET, &raddr.sin_addr, ipstr, IPSTRSIZE);
+            printf("Recv connection from client (%s:%d).\n", ipstr, ntohs(raddr.sin_port));
+
+            server_execute(ret);
+            close(ret);
+            exit(0);
+        }
+    }
+```
+
+解释：
+
+（1）使用fork创建子进程，在子进程中执行server_execute即可
+
+但是上述的多进程并发版本存在几个问题：
+
+（1）系统中支持的进程数量（pid_t）是有限的
+
+（2）为每一个客户端开辟一个进程所带来的开销巨大
+
+因此，只能限定子进程的个数N，变成了N个子进程去抢任务执行。但是，N个子进程去抢任务又会遇到进程同步的问题，又回到了之前讲过的并发的话题。
+
+### 4. 基于流式套接字的图片下载功能实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/ipc/socket/stream/webdl.c)
+
+在本地搭建web服务器，然后使用HTTP协议下载服务器中的图片。只需要复用C端代码然后稍微改动即可。
+
+```c
+    struct sockaddr_in raddr;
+    raddr.sin_family = AF_INET;
+    raddr.sin_port = htons(80);
+    inet_pton(AF_INET, argv[1], (void *)&raddr.sin_addr);
+
+    ret = connect(sock, (void *)&raddr, sizeof(raddr));
+    if (ret < 0) {
+        perror("connect()");
+        exit(1);
+    }
+```
+
+解释：
+
+（1）此时C端要连接的端口号是80，即HTTP协议所在端口号
+
+（2）然后调用connect与S端（apache web服务器）建立连接
+
+```c
+    // open socket file descriptor
+    FILE *fp = fdopen(sock, "r+");
+    if (fp == NULL) {
+        perror("fdopen()");
+        exit(1);
+    }
+
+    // write http request to socket
+    fprintf(fp, "GET /logo.jpg\r\n\r\n");
+    fflush(fp);
+
+    // recv response data from socket
+    size_t len = 0;
+    static char buffer[BUFSIZ];
+    while (1) {
+        len = fread(buffer, 1, BUFSIZ, fp);
+        if (len <= 0) {
+            break;
+        }
+
+        fwrite(buffer, 1, len, stdout);
+    }
+```
+
+解释：
+
+（1）连接建立后，打开socket文件描述符获取文件指针
+
+（2）往文件中写入GET请求，然后刷新缓冲区，此时便完成了http request的发送
+
+（3）随后C端不停地从socket中读取S端的发送的数据往标准输出打印
+
+
+### 5. 静态进程池套接字实现
 
 【pending】
