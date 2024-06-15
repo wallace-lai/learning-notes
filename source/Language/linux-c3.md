@@ -1380,6 +1380,118 @@ TCP通信的步骤：
 （3）随后C端不停地从socket中读取S端的发送的数据往标准输出打印
 
 
-### 5. 静态进程池套接字实现
+### 5. 静态进程池套接字的echo服务器实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/stream/pool_static)
+
+在本案例中，要求在S端设立数量固定的进程池来处理来自C端的请求。我们只需要在echo服务器的基本版本上改进S端代码即可。
+
+```c
+#define PROCNUM 4
+
+
+    int sock = socket(AF_INET, SOCK_STREAM, 0 /* IPPROTO_TCP, IPPROTO_SCTP */);
+    if (sock < 0) { /* ... */ }
+
+    int val = 1;
+    ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) { /* ... */ }
+
+    struct sockaddr_in laddr;
+    laddr.sin_family = AF_INET;
+    laddr.sin_port = htons(atoi(SERVER_PORT));
+    inet_pton(AF_INET, "0.0.0.0", (void *)&laddr.sin_addr);
+
+    ret = bind(sock, (void *)&laddr, sizeof(laddr));
+    if (ret < 0) { /* ... */ }
+
+    ret = listen(sock, 200);
+    if (ret < 0) { /* ... */ }
+```
+
+解释：
+
+（1）限定子进程个数为4个
+
+（2）父进程同样先创建socket、绑定端口、开始监听
+
+```c
+    for (int i = 0; i < PROCNUM; i++) {
+        pid_t pid = fork();
+        if (pid < 0) { /* ... */ }
+
+        if (pid == 0) {
+            server_loop(sock);
+            exit(0);
+        }
+    }
+
+    for (int i = 0; i < PROCNUM; i++) {
+        wait(NULL);
+    }
+
+    close(sock);
+    exit(0);
+```
+
+解释：
+
+（1）父进程创建4个子进程
+
+（2）每个子进程执行server_loop操作，该操作实际上是一个死循环不会自动停止，因此子进程的exit(0)不会执行
+
+（3）父进程回收4个子进程的资源，最后关闭socket结束程序
+
+```c
+static void server_execute(int fd)
+{
+    static char buffer[STAMPSIZE];
+    memset(buffer, 0, STAMPSIZE);
+
+    int len = sprintf(buffer, FORMAT_STAMP, (long long)time(NULL));
+    int ret = send(fd, buffer, len, 0);
+    if (ret < 0) { /* ... */ }
+}
+
+static void server_loop(int sock)
+{
+    int ret;
+    struct sockaddr_in raddr;
+    socklen_t raddr_len = 0;
+    static char ipstr[IPSTRSIZE];
+
+    while (1) {
+        // accept can be locked automatically
+        ret = accept(sock, (void *)&raddr, &raddr_len);
+        if (ret < 0) { /* ... */ }
+
+        memset(ipstr, 0, IPSTRSIZE);
+        inet_ntop(AF_INET, &raddr.sin_addr, ipstr, IPSTRSIZE);
+        printf("[%d] Recv connection from client (%s:%d).\n", getpid(), ipstr, ntohs(raddr.sin_port));
+
+        server_execute(ret);
+        close(ret);
+    }
+}
+```
+
+解释：
+
+（1）子进程不断地调用accept接受C端的连接，随后向C端发送本机的时间戳
+
+（2）注意accept自身是可重入的，无需设置额外的互斥锁，就能保证4个子进程有序地accept同一个socket
+
+
+静态进程池（固定子进程个数）的弊端：
+
+（1）无法应对瞬时的大流量冲击
+
+（2）S端闲时，子进程也不销毁，仍然占用系统资源
+
+可以将静态进程池改造成动态进程池，要求池中子进程数量不少于下限N（比如10）个，不超过上限M（比如200）个。
+
+### 6. 动态进程池套接字的echo服务器实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/stream/pool_dynamic)
 
 【pending】
