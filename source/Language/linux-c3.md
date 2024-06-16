@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-15 <br>
+更新：2024-06-16 <br>
 
 进程间通信对应APUE上的章节为：
 
@@ -1099,7 +1099,7 @@ hash((Cip + Cport + Sip + Sport + proto) | salt)
 
 注意：盐值salt是由内核产生的，一秒钟变一次。S端如果使用当前的salt计算出来结果不匹配，则用上一秒的salt值继续匹配。如果还匹配不上，说明这个第三次握手消息可能已经超时了。
 
-## P254 ~ P259 进程间通信 - 流式套接字详解
+## P254 ~ P263 进程间通信 - 流式套接字详解
 
 流式套接字（TCP）的特点：
 
@@ -1494,4 +1494,10 @@ static void server_loop(int sock)
 
 [完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/ipc/socket/stream/pool_dynamic)
 
-【pending】
+解释：等代码重构后再写
+
+
+## P264 ~ P266 进程间通信 - anytimer的实现
+
+暂缓
+
