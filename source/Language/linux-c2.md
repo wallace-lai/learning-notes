@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-16 <br>
+更新：2024-06-19 <br>
 
 并发操作对应APUE上的章节为：
 
@@ -65,6 +65,15 @@
 为了解决这个问题，vfork应用而生。vfork通过父子进程共享同一块内存的方式，避免了拷贝只读的数据。后来的fork抛弃了内存拷贝的实现方式，使用COW技术实现，已经完全替代了vfork的功能。因此，现今的vfork基本处于废弃状态，使用fork就行了。
 
 ### 3. 进程的消亡及资源释放
+
+```c
+    #include <sys/types.h>
+    #include <sys/wait.h>
+
+    pid_t wait(int *wstatus);
+
+    pid_t waitpid(pid_t pid, int *wstatus, int options);
+```
 
 ### 4. exec函数族
 
@@ -395,4 +404,227 @@ waitpid(-1, &wstatus, 0);
 （2）父进程在创建完子进程后，使用wait等待所有的子进程结束，且不关心子进程退出状态
 
 ## P172 进程 - 进程的交叉分配法实现
+
+假设将`[1, 201]`范围内的数是否为质数的任务分配给3个进程，有以下的进程任务分配的方法：
+
+（1）分块法：将范围平均划分成前中后三个部分，分别分配给3个进程
+
+缺点：进程负载不均衡，显然进程1的负载最重（最小范围内的质数密度最高）
+
+
+（2）交叉分配法：类似发牌的方式，将范围内的数一个个地按序分配给3个进程
+
+缺点：仍然存在负载不均衡的问题！显然进程1拿到的数一定是3的倍数，它不可能是质数，因此进程1的负载基本为空。
+
+注意：由于求解质数的案例比较特殊，输入是一个范围内的连续整数，所以导致交叉分配法的性能拉胯。实际上，在一般的任务中，交叉分配法的性能是比较好的。
+
+（3）池类算法：将任务放入容器中，由进程从容器中抢任务，谁抢到了谁执行。一般而言，池类算法具有很好的随机性。
+
+![池类算法](../media/images/Language/linux-c6.png)
+
+### 1. 将求解质数的程序改造成交叉分配法
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/primern.c)
+
+```c
+    for (int n = 0; n < N; n++) {
+        pid_t pid = fork();
+        if (pid < 0) { /* ... */ }
+
+        if (pid == 0) {
+            // child
+            for (int i = BEG + n; i <= END; i += N) {
+                if (is_primer(i)) {
+                    printf("[%d] %d is primer number\n", n, i);
+                }
+            }
+
+            exit(0);
+        }
+    }
+
+    for (int n = 0; n < N; n++) {
+        wait(NULL);
+    }
+```
+
+解释：
+
+（1）父进程循环创建N个子进程，每个子进程只选择能整除进程编号n的数去判断
+
+（2）父进程等待N个子进程结束
+
+代码执行结果：
+
+```shell
+$ ./primern
+[2] 30000023 is primer number
+[1] 30000001 is primer number
+[1] 30000037 is primer number
+[2] 30000041 is primer number
+[1] 30000049 is primer number
+[2] 30000059 is primer number
+[1] 30000079 is primer number
+[2] 30000071 is primer number
+[1] 30000109 is primer number
+[2] 30000083 is primer number
+[1] 30000133 is primer number
+[2] 30000137 is primer number
+[1] 30000163 is primer number
+[2] 30000149 is primer number
+[1] 30000169 is primer number
+[2] 30000167 is primer number
+[1] 30000193 is primer number
+[1] 30000199 is primer number
+```
+
+可以看到0号进程确实没有处理一个质数
+
+## P173 进程 - exec函数族
+
+`few`三个字符搭建了整个Linux的进程框架，它们是：
+
+（1）`fork`：创建子进程
+
+（2）`exec`：执行文件
+
+（3）`wait`：等待子进程退出
+
+### 1. 接口
+
+The exec() family of functions replaces the current process image with a new process image.
+
+```c
+#include <unistd.h>
+
+extern char **environ;
+
+int execl(const char *pathname, const char *arg, ... /* (char  *) NULL */);
+```
+
+（1）`pathname`：可执行程序所在的路径
+
+（2）`arg`：给程序的传参，多个参数最后以NULL结尾
+
+```c
+int execlp(const char *file, const char *arg, ... /* (char  *) NULL */);
+```
+
+（1）`file`：可执行程序的名称，从`environ`中指定的路径下去查找该程序
+
+（2）`arg`：给程序的传参
+
+```c
+int execle(const char *pathname, const char *arg, ... 
+    /*, (char *) NULL, char *const envp[] */);
+```
+
+（1）`envp`：给程序传递的环境变量
+
+```c
+int execv(const char *pathname, char *const argv[]);
+int execvp(const char *file, char *const argv[]);
+int execvpe(const char *file, char *const argv[],
+    char *const envp[]);
+```
+
+（1）`argv`：以argv的形式传参
+
+### 2. exec使用案例之打印时间戳1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/exe.c)
+
+```c
+int main()
+{
+    puts("my date begin ...");
+
+    execl("/usr/bin/date", "date", "+%s", NULL);
+    perror("execl()");
+    exit(1);
+
+    puts("my date end ...");
+    exit(0);
+}
+```
+
+解释：
+
+（1）使用`execl`直接将当前进程的进程映像替换成data的
+
+（2）如果替换不成功，那么程序会往下走`perror`报错退出；如果替换成功，那么当前整个镜像都会被干掉
+
+（3）可以预想到`my date end`是不会打印出来的，因为main的进程镜像被干掉了
+
+运行结果：
+
+```shell
+$ ./exe
+my date begin ...
+1718810449
+```
+
+如果将输出给重定向的话，查看结果：
+
+```shell
+$ ./exe > /tmp/out
+$ cat /tmp/out
+1718810906
+```
+`my date begin`的打印为什么消失了？因为文件（往文件`/tmp/out`中写入）是全缓冲，所以换行符不会触发缓冲区的刷新。`execl`执行后，在缓冲区的`my date begin`还没来得及打印就随着整个进程镜像的替换而被干掉了，自然也就打印不了了。
+
+由此得出一个结论：**和fork类似，在执行exec之前也需要调用fflush刷新进程当前打开的流**！
+
+```c
+int main()
+{
+    puts("my date begin ...");
+
+    fflush(NULL);
+    execl("/usr/bin/date", "date", "+%s", NULL);
+    perror("execl()");
+    exit(1);
+
+    puts("my date end ...");
+    exit(0);
+}
+```
+
+再看程序结果：
+
+```shell
+$ ./exe > /tmp/out
+$ cat /tmp/out
+my date begin ...
+1718811669
+```
+
+
+如何形容`execl`？**你还是你（pid号以及父子进程的关系不变），但你已经不是你了（进程映像已经被替换了）**！
+
+### 3. exec使用案例之打印时间戳2
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/few.c)
+
+使用`few`实现打印时间戳，即创建子进程并替换子进程的映像，让子进程去执行时间戳的打印任务，父进程回收子进程。
+
+```c
+    puts("my date begin ...");
+
+    fflush(NULL);
+    pid_t pid = fork();
+    if (pid < 0) { /* ... */ }
+
+    if (pid == 0) {
+        // child
+        execl("/usr/bin/date", "date", "+%s", NULL);
+        perror("execl()");
+        exit(1);
+    }
+
+    wait(NULL);
+
+    puts("my date end ...");
+    exit(0);
+```
 
