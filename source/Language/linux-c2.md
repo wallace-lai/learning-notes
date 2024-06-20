@@ -628,3 +628,103 @@ my date begin ...
     exit(0);
 ```
 
+## P174 进程 - shell命令实现原理
+
+为什么fork出来的子进程和父进程内容打印在了同一个终端中？
+
+![父子进程共享终端](../media/images/Language/linux-c7.png)
+
+因为fork出来的子进程的打开文件列表和父进程是一样的，前3个文件都指向了同一个设备。
+
+### 1. mysh的简易shell实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/mysh.c)
+
+这次案例我们需要实现自己的一个建议shell命令，目前只支持内部命令。
+
+```c
+    while (1) {
+        prompt();
+
+        char *buffer = NULL;
+        size_t buffer_size = 0;
+
+        ret = getline(&buffer, &buffer_size, stdin);
+        if (ret < 0) { /* ... */ }
+
+        cmd_t cmd;
+        parse(buffer, &cmd);
+
+        if (0) {
+            // ...
+        } else {
+            fflush(NULL);
+            pid_t pid = fork();
+            if (pid < 0) { /* ... */ }
+
+            if (pid == 0) {
+                execvp(cmd.result.gl_pathv[0], cmd.result.gl_pathv);
+                perror("execvp()");
+                exit(1);
+            } else {
+                wait(NULL);
+            }
+        }
+    }
+```
+
+解释：
+
+（1）父进程是一个死循环，第一步先打印提示符
+
+（2）第二步使用getline获取用户输入
+
+（3）第三步使用parse解析用户的输入
+
+（4）第四部fork子进程去执行命令
+
+（5）最后父进程等待子进程结束
+
+```c
+typedef struct cmd_s {
+    glob_t result;
+} cmd_t;
+
+static void prompt(void)
+{
+    printf("mysh - 0.1 >>> ");
+}
+
+static void parse(char *line, cmd_t *cmd)
+{
+    // ls -l -a -h /home/xyz/
+    int i = 0;
+    char *tok = NULL;
+
+    while (1) {
+        tok = strsep(&line, DELIMS);
+        if (tok == NULL) {
+            break;
+        }
+        if (tok[0] == '\0') {
+            continue;
+        }
+
+        if (glob(tok, GLOB_NOCHECK | GLOB_APPEND * i, NULL, &cmd->result) != 0) {
+            break;
+        }
+        i = 1;
+    }
+}
+```
+
+解释：
+
+（1）使用strsep分割完整字符串
+
+（2）如果为NULL说明分割完毕，退出循环
+
+（3）如果为`\0`说明当前分割的子串为空，跳过
+
+（4）使用glob将所有分割的子串组装成类似`argv[]`的结构
+
