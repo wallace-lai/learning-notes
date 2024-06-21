@@ -4,6 +4,8 @@
 .. toctree::
     :maxdepth: 2
 
+    atc0.md 
+
     heap0.md
     list0.md
     two-pointers.md
