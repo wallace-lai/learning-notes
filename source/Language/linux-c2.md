@@ -77,6 +77,20 @@
 
 ### 4. exec函数族
 
+```c
+    #include <unistd.h>
+
+    extern char **environ;
+
+    int execl(const char *pathname, const char *arg, ... /* (char  *) NULL */);
+    int execlp(const char *file, const char *arg, ... /* (char  *) NULL */);
+    int execle(const char *pathname, const char *arg, ...
+        /*, (char *) NULL, char *const envp[] */);
+    int execv(const char *pathname, char *const argv[]);
+    int execvp(const char *file, char *const argv[]);
+    int execvpe(const char *file, char *const argv[], char *const envp[]);
+```
+
 ### 5. 用户权限和组权限
 
 ### 6. 观摩课：解释器文件
@@ -628,7 +642,7 @@ my date begin ...
     exit(0);
 ```
 
-## P174 进程 - shell命令实现原理
+## P174 ~ P175 进程 - shell命令实现原理
 
 为什么fork出来的子进程和父进程内容打印在了同一个终端中？
 
@@ -727,4 +741,16 @@ static void parse(char *line, cmd_t *cmd)
 （3）如果为`\0`说明当前分割的子串为空，跳过
 
 （4）使用glob将所有分割的子串组装成类似`argv[]`的结构
+
+## P176 进程 - 用户权限和组权限实现原理
+
+普通用户没有查看和修改shadow文件的权限，但是却可以使用passwd命令修改自身账号的密码，这是为何？
+
+```shell
+$ cat /etc/shadow
+cat: /etc/shadow: Permission denied
+$ passwd
+Changing password for bob.
+Current password:
+```
 
