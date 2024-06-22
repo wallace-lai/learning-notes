@@ -1066,5 +1066,245 @@ DESCRIPTION
     };
 ```
 
-## P179 ~ P180 进程 - 守护进程
+## P179 - 守护进程
 
+**没太理解本节的守护进程的概念**。
+
+守护进程的特点：
+
+（1）脱离控制终端而存在
+
+（2）会话和进程组的leader
+
+### 1. 接口
+```c
+setsid()
+getpgrp()
+getpgid()
+setpgid()
+```
+setsid() creates a new session if the calling process is not a process group
+leader. The calling process is the leader of the new session (i.e., its session ID
+is  made the same as its process ID).  The calling process also becomes the process
+group leader of a new process group in the session (i.e., its process group  ID  is
+made the same as its process ID)
+```
+
+
+
+使用`ps axj`查看系统中的守护进程
+
+```shell
+$ ps axj
+   PPID     PID    PGID     SID TTY        TPGID STAT   UID   TIME COMMAND
+      0       1       1       1 ?             -1 Ss       0   0:03 /sbin/init auto automatic-
+      0       2       0       0 ?             -1 S        0   0:00 [kthreadd]
+      2       3       0       0 ?             -1 I<       0   0:00 [rcu_gp]
+      2       4       0       0 ?             -1 I<       0   0:00 [rcu_par_gp]
+      2       6       0       0 ?             -1 I<       0   0:00 [kworker/0:0H-kblockd]
+      2       8       0       0 ?             -1 I<       0   0:00 [mm_percpu_wq]
+      2       9       0       0 ?             -1 S        0   0:00 [ksoftirqd/0]
+      2      10       0       0 ?             -1 I        0   0:02 [rcu_sched]
+      2      11       0       0 ?             -1 S        0   0:00 [migration/0]
+      1     928     928     928 ?             -1 Ssl      0   0:00 /usr/lib/accountsservice/a
+      1     935     935     935 ?             -1 Ss       0   0:00 /usr/sbin/cron -f
+      1     937     937     937 ?             -1 Ss     103   0:00 /usr/bin/dbus-daemon --sys
+      1     946     946     946 ?             -1 Ssl      0   0:00 /usr/sbin/irqbalance --for
+      1     949     949     949 ?             -1 Ss       0   0:00 /usr/bin/python3 /usr/bin/
+      1     950     950     950 ?             -1 Ssl      0   0:00 /usr/lib/policykit-1/polki
+      1     953     953     953 ?             -1 Ssl    115   0:20 /usr/lib/erlang/erts-14.0.
+      1     958     958     958 ?             -1 Ssl      0   0:02 /usr/lib/snapd/snapd
+      1     969     969     969 ?             -1 Ss       0   0:00 /lib/systemd/systemd-login
+      1     973     973     973 ?             -1 Ssl      0   0:00 /usr/lib/udisks2/udisksd
+      1     974     974     974 ?             -1 Ss       1   0:00 /usr/sbin/atd -f
+      1     979     979     979 ?             -1 Ssl      0   0:00 /usr/sbin/ModemManager
+```
+
+守护进程的特征：
+
+（1）PID、PGID、SID是相同的
+
+（2）TTY是问号表示已经脱离了终端
+
+### 2. 守护进程实例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/daemon/mydaemon.c)
+
+下面是一个简单的守护进程的实现。
+
+```c
+static int daemonize()
+{
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork()");
+        return -1;
+    }
+
+    if (pid > 0) {
+        // parent
+        exit(0);
+    }
+
+    int fd = open("/dev/null", O_RDWR);
+    if (fd < 0) {
+        perror("open()");
+        return -1;
+    }
+
+    dup2(fd, 0);
+    dup2(fd, 1);
+    dup2(fd, 2);
+    if (fd > 2) {
+        close(fd);
+    }
+
+    setsid();
+    chdir("/");
+    umask(0);
+
+    return 0;
+}
+```
+
+解释：
+
+（1）父进程通过调用daemonize()来成为守护进程
+
+（2）正常创建子进程，对于父进程而言正常结束即可
+
+（3）对于子进程，需要在子进程中将前3个流给绑定到`/dev/null`中
+
+（4）通过调用setsid让父进程成为守护进程
+
+（5）子进程正常退出前更改守护进程的工作目录为`/`同时去除umask如果守护进程不创建文件的话
+
+```c
+int main()
+{
+    if (daemonize()) {
+        exit(1);
+    }
+
+    FILE *fp = fopen(FNAME, "w");
+    if (fp == NULL) {
+        perror("fopen()");
+        exit(1);
+    }
+
+    unsigned i = 0;
+    while (1) {
+        fprintf(fp, "%d\n", i);
+        fflush(fp);
+        sleep(1);
+
+        i++;
+    }
+
+    exit(0);
+}
+```
+
+解释：
+
+（1）父进程是守护进程的主体，要做的事就是打开`/tmp/out`文件，每隔1s向其中打印计数器值
+
+## P180 进程 - 系统日志
+
+由于守护进程已经和TTY分离了，如果需要得到守护进程的打印内容，需要使用系统日志功能。
+
+（1）系统日志所在路径：`/var/log`
+
+（2）提交系统日志需要用到syslogd服务
+
+### 1. 接口
+
+```c
+    #include <syslog.h>
+
+    void openlog(const char *ident, int option, int facility);
+    void syslog(int priority, const char *format, ...);
+    void closelog(void);
+
+    void vsyslog(int priority, const char *format, va_list ap);
+```
+
+```
+closelog, openlog, syslog, vsyslog - send messages to the system logger
+```
+
+（1）openlog：与syslogd关联
+
+（2）syslog：提交log内容
+
+（3）closelog：与syslogd断联
+
+### 2. 带系统日志功能的守护进程实例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/process_basic/daemon/mydaemon.c)
+
+### 3. 单实例的守护进程实例
+
+为了实现以单实例的形式（只能启动一个守护进程）启动守护进程，需要用到文件锁。锁文件位于`/var/run/name.pid`之中。
+
+```shell
+$ ls -lah /var/run/sshd.pid
+-rw-r--r-- 1 root root 5 Jun 22 14:35 /var/run/sshd.pid
+$ cat /var/run/sshd.pid
+1014
+$ ps axj | grep sshd
+      1    1014    1014    1014 ?             -1 Ss       0   0:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+$
+```
+
+解释：
+
+（1）守护进程sshd的锁文件是/var/run/sshd.pid
+
+（2）sshd.pid里面保存的是sshd守护进程的pid号1014
+
+## P182 并发 - 异步事件处理的两种方法
+
+异步事件处理的两种方法：
+
+（1）查询法：异步事件发生的频率很高，采用查询法
+
+（2）通知法：异步事件发生的频率很稀疏，采用通知法
+
+### 1. 信号
+（1）信号的概念
+
+信号：信号是软件中断
+
+（2）发送信号signal()
+
+（3）信号的不可靠性
+
+（4）可重入函数
+
+（5）信号的响应过程
+
+（6）信号常用函数
+
+- kill()
+- raise()
+- alarm()
+- pause()
+- abort()
+- system()
+- sleep()
+
+
+（7）信号集
+
+（8）信号屏蔽字 / pending集合 的处理 
+
+（9）扩展
+
+- sigsuspend()
+- sigaction()
+- setitimer()
+
+（10）实时信号
+
+### 2. 线程
