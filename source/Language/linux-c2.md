@@ -97,9 +97,43 @@
 
 ### 7. 系统调用system()
 
+```c
+    #include <stdlib.h>
+
+    int system(const char *command);
+```
+
+```
+The system() library function uses fork(2) to create a child process that executes the shell command
+specified in command using execl(3) as follows:
+
+    execl("/bin/sh", "sh", "-c", command, (char *) NULL);
+
+system() returns after the command has been completed.
+```
+
 ### 8. 进程会计
 
+```c
+    #include <unistd.h>
+
+    int acct(const char *filename);
+```
+
 ### 9. 进程时间
+
+```c
+    #include <sys/times.h>
+
+    clock_t times(struct tms *buf);
+
+    struct tms {
+        clock_t tms_utime;  /* user time */
+        clock_t tms_stime;  /* system time */
+        clock_t tms_cutime; /* user time of children */
+        clock_t tms_cstime; /* system time of children */
+    };
+```
 
 ### 10. 守护进程
 
@@ -742,7 +776,7 @@ static void parse(char *line, cmd_t *cmd)
 
 （4）使用glob将所有分割的子串组装成类似`argv[]`的结构
 
-## P176 进程 - 用户权限和组权限实现原理
+## P176 ~ P177 进程 - 用户权限和组权限实现原理
 
 普通用户没有查看和修改shadow文件的权限，但是却可以使用passwd命令修改自身账号的密码，这是为何？
 
@@ -753,4 +787,284 @@ $ passwd
 Changing password for bob.
 Current password:
 ```
+
+### 1. 用户权限鉴定流程
+
+下面的内容没太理解，先做个记录。
+
+（1）uid和sid均有三个，分别是
+
+- r : real uid/sid
+
+- e : effective uid/sid
+
+- s : save uid/sid
+
+其中s可以没有，但一定会有r和e，鉴权的时候会看r和e。
+
+（2）可以看到passwd命令是有u+s权限的（`rws`）
+
+```shell
+$ which passwd
+/usr/bin/passwd
+$ ls -lah /usr/bin/passwd
+-rwsr-xr-x 1 root root 67K Feb  6 12:49 /usr/bin/passwd
+```
+
+当一个程序具有u+s权限说明当别的用户来调用该程序时，它的身份会切换成当前程序所属用户的身份。对于passwd命令来说，该用户是root。
+
+如下图所示，当exec在执行passwd命令时发现它有u+s权限。于是passwd的权限不再是继承而来的res值，e和s会变成0，也即passwd实际是以root用户的权限在执行。passwd命令作为子进程执行完后销毁，不复存在。
+
+因此，写passwd命令的程序员应该万分小心，因为passwd是以root的权限在执行的。
+
+![用户权限鉴定](../media/images/Language/linux-c8.png)
+
+### 2. shell命令执行时的身份（账号）是怎么来的
+
+![获取身份信息](../media/images/Language/linux-c9.png)
+
+解释：
+
+（1）初始init进程使用fork和exec产生getty进程，此时屏幕上会提示你输入用户名
+
+（2）getty进程拿到用户名后使用exec产生login进程，此时屏幕上会提示你继续输入用户密码
+
+（3）此时login进程仍然是以root权限在运行，并且已经拿到了用户名和密码。通过使用用户名和密码加上盐值salt的方式得到一个加密哈希串，将该串与shadow文件中的串进行对比，如果相同则说明用户密码正确，成功登录系统。
+
+（4）如果登录成功，则login进程使用fork和exec创建shell进程，这个shell进程就拿到了你的身份（账户）信息
+
+### 3. 相关接口
+
+- getuid
+- geteuid
+- getgid
+- getegid
+
+- setuid
+- setgid
+- setreuid
+- setregid
+
+### 4. mysu的实现
+
+mysu是一个简单的实现类似sudo功能的程序，我们希望能通过mysu来达到获取root权限来执行命令的功能。如下所示，其中0表示root用户的uid值。
+
+```shell
+./mysu 0 cat /etc/passwd
+```
+
+代码实现如下：
+
+```c
+int main(int argc, char **argv)
+{
+    // ./mysu 0 cat /etc/passwd
+    if (argc < 3) {
+        fprintf(stderr, "Usage ...\n");
+        exit(1);
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork()");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        // child
+        setuid(atoi(argv[1]));
+        execvp(argv[2], argv + 2);
+        perror("execvp()");
+        exit(1);
+    }
+
+    wait(NULL);
+    exit(0);
+}
+```
+
+解释：
+
+（1）子进程通过setuid将子进程的res均设置为0，即root用户的uid，随后子进程就拥有的root用户权限
+
+（2）子进程获取root用户权限后，使用execvp执行后面传入的命令
+
+（3）父进程等待子进程运行结束
+
+执行mysu命令，发现没有权限！很简单，**要是谁都能通过setuid来获取root权限那还要`su`命令做什么**？
+
+```shell
+$ ./mysu 0 cat /etc/shadow
+cat: /etc/shadow: Permission denied
+```
+
+给mysu设置u+s权限，将root用户权限下放给mysu程序（这个过程需要有root权限）。
+
+（1）查看mysu的owner为xxx
+
+```shell
+$ ls -lah mysu
+-rwxrwxr-x 1 xxx  xxx  17K Jun 22 10:34 mysu
+```
+
+（2）尝试将mysu的owner设置成root，发现需要root权限才能设置
+
+```shell
+$ chown root mysu
+chown: changing ownership of 'mysu': Operation not permitted
+$ sudo chown root mysu
+[sudo] password for xxx:
+$ ls -lah mysu
+-rwxrwxr-x 1 root xxx 17K Jun 22 10:34 mysu
+$
+```
+
+（3）设置u+s权限
+
+```shell
+$ ls -lah mysu
+-rwxrwxr-x 1 root xxx 17K Jun 22 10:34 mysu
+$ chmod u+s mysu
+chmod: changing permissions of 'mysu': Operation not permitted
+$ sudo chmod u+s mysu
+$ ls -lah mysu
+-rwsrwxr-x 1 root xxx 17K Jun 22 10:34 mysu
+```
+
+此时，mysu获取了u+s权限，再次执行mysu时将会将root权限下放给mysu程序。此时，mysu中的setuid才能成功执行
+
+```shell
+$ ./mysu 0 cat /etc/shadow
+...
+```
+
+### 5. 解释器文件
+
+下面是一个简单的shell脚本：
+
+```shell
+#!/bin/bash
+
+ls
+whoami
+cat /etc/shadow
+ps
+```
+
+shell发现文件开头的解释器文件标识符`#!`后会把你要的`bin/bash`加载进来，然后将整个脚本内容直接扔给`bin/bash`。运行结果如下：
+
+```shell
+$ ./t.sh
+exe.c  few.c  fork1.c  mysh.c  mysu.c  primer1.c  primer2.c  primern.c  t.sh
+xxx
+cat: /etc/shadow: Permission denied
+    PID TTY          TIME CMD
+  14285 pts/0    00:00:00 bash
+  21206 pts/0    00:00:00 t.sh
+  21210 pts/0    00:00:00 ps
+```
+
+将shell内容改成以下的内容：
+
+```shell
+#!/bin/cat
+
+ls
+whoami
+cat /etc/shadow
+ps
+```
+
+运行结果如下，cat直接将脚本内容给打印出来了。
+
+```shell
+$ ./t.sh
+#!/bin/cat
+
+ls
+whoami
+cat /etc/shadow
+ps
+```
+
+## P178 进程 - system、进程会计、进程时间
+
+### 1. system
+system()可以看成few的封装，使用system来输出时间戳。
+
+```c
+int main()
+{
+    system("date +%s > /tmp/out");
+
+    exit(0);
+}
+```
+
+对应的，这是few的实现：
+
+```c
+    pid_t pid = fork();
+    if (pid < 0) { /* ... */ }
+
+    if (pid == 0) {
+        execl("/usr/bin/date", "date", "+%s", NULL);
+        perror("execl()");
+        exit(1);
+    }
+
+    wait(NULL);
+```
+
+而system()本质上是这样实现的：
+
+```c
+    pid_t pid = fork();
+    if (pid < 0) { /* ... */ }
+
+    if (pid == 0) {
+        execl("/bin/sh", "sh", "-c", "date +%s", NULL);
+        perror("execl()");
+        exit(1);
+    }
+
+    wait(NULL);
+```
+
+即先调用shell，将命令传递给shell执行。
+
+### 2. 进程会计
+
+```c
+    #include <unistd.h>
+
+    int acct(const char *filename);
+```
+
+```
+DESCRIPTION
+       The  acct()  system  call  enables or disables process accounting.  If called
+       with the name of an existing file as its argument, accounting is  turned  on,
+       and  records for each terminating process are appended to filename as it ter‐
+       minates.  An argument of NULL causes accounting to be turned off.
+```
+
+注意：这个接口只是BSD系统的方言，不在POSIX标准里面
+
+### 3. 进程时间
+
+```c
+    #include <sys/times.h>
+
+    clock_t times(struct tms *buf);
+
+    struct tms {
+        clock_t tms_utime;  /* user time */
+        clock_t tms_stime;  /* system time */
+        clock_t tms_cutime; /* user time of children */
+        clock_t tms_cstime; /* system time of children */
+    };
+```
+
+## P179 ~ P180 进程 - 守护进程
 
