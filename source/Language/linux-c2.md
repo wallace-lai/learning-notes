@@ -1274,9 +1274,46 @@ $
 ### 1. 信号
 （1）信号的概念
 
-信号：信号是软件中断
+信号：信号是软件中断，信号的响应依赖于中断。
+
+使用`kill -l`命令可以查看当前的信号
+
+```shell
+$ kill -l
+ 1) SIGHUP       2) SIGINT       3) SIGQUIT      4) SIGILL       5) SIGTRAP
+ 6) SIGABRT      7) SIGBUS       8) SIGFPE       9) SIGKILL     10) SIGUSR1
+11) SIGSEGV     12) SIGUSR2     13) SIGPIPE     14) SIGALRM     15) SIGTERM
+16) SIGSTKFLT   17) SIGCHLD     18) SIGCONT     19) SIGSTOP     20) SIGTSTP
+21) SIGTTIN     22) SIGTTOU     23) SIGURG      24) SIGXCPU     25) SIGXFSZ
+26) SIGVTALRM   27) SIGPROF     28) SIGWINCH    29) SIGIO       30) SIGPWR
+31) SIGSYS      34) SIGRTMIN    35) SIGRTMIN+1  36) SIGRTMIN+2  37) SIGRTMIN+3
+38) SIGRTMIN+4  39) SIGRTMIN+5  40) SIGRTMIN+6  41) SIGRTMIN+7  42) SIGRTMIN+8
+43) SIGRTMIN+9  44) SIGRTMIN+10 45) SIGRTMIN+11 46) SIGRTMIN+12 47) SIGRTMIN+13
+48) SIGRTMIN+14 49) SIGRTMIN+15 50) SIGRTMAX-14 51) SIGRTMAX-13 52) SIGRTMAX-12
+53) SIGRTMAX-11 54) SIGRTMAX-10 55) SIGRTMAX-9  56) SIGRTMAX-8  57) SIGRTMAX-7
+58) SIGRTMAX-6  59) SIGRTMAX-5  60) SIGRTMAX-4  61) SIGRTMAX-3  62) SIGRTMAX-2
+63) SIGRTMAX-1  64) SIGRTMAX
+```
+
+
+- 信号编号1 ~ 31：标准信号
+- 实时信号32 ~ 64：实时信号
+
+UNIX系统信号列表：
+
+![UNIX系统列表](../media/images/Language/linux-c10.png)
+
+
 
 （2）发送信号signal()
+
+```c
+    #include <signal.h>
+
+    typedef void (*sighandler_t)(int);
+
+    sighandler_t signal(int signum, sighandler_t handler);
+```
 
 （3）信号的不可靠性
 
@@ -1308,3 +1345,58 @@ $
 （10）实时信号
 
 ### 2. 线程
+
+## P183 ~ P186 并发 - 信号的基本概念
+
+### 1. signal()接口
+
+```c
+    #include <signal.h>
+
+    typedef void (*sighandler_t)(int);
+
+    sighandler_t signal(int signum, sighandler_t handler);
+```
+
+注意：**不建议使用signal()，尽量使用sigaction()代替该函数**
+
+```c
+    #include <signal.h>
+
+    int sigaction(int signum, const struct sigaction *act,
+        struct sigaction *oldact);
+```
+
+### 2. 简单signal实例
+
+写一个简单的打印星号的程序：
+
+```c
+int main()
+{
+    for (int i = 0; i < 10; i++) {
+        write(1, "*", 1);
+        sleep(1);
+    }
+
+    exit(0);
+}
+```
+
+使用CTRL + C打断程序的执行：
+
+```shell
+$ ./star
+*****^C
+$
+```
+
+（1）使用`CTRL+C`相当于是发送了`SIGINT`信号，即`CTRL+C`是`SIGINT`的快捷键
+
+（2）`SIGINT`信号的默认动作是终止程序
+
+（3）使用`CTRL+\`相当于是发送了`SIGQUIT`信号
+
+
+
+
