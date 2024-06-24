@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-19 <br>
+更新：2024-06-25 <br>
 
 并发操作对应APUE上的章节为：
 
@@ -1315,11 +1315,45 @@ UNIX系统信号列表：
     sighandler_t signal(int signum, sighandler_t handler);
 ```
 
+注意：**信号会打断阻塞的系统调用**！
+
 （3）信号的不可靠性
+
+标准信号是会丢失的，实时信号不会；
+
+信号的不可靠性：信号处理函数的执行现场是内核处理的，信号的不可靠性指的是**在信号处理函数执行过程中又来了一个相同的信号，第二次的执行现场可能把第一次的执行现场给覆盖了**。
+
 
 （4）可重入函数
 
+**可重入函数是为了解决信号不可靠问题而产生的概念。所有的Linux系统调用都是可重入的，但只有部分的标准库函数是可重入的**。
+
+```c
+    struct tm *localtime(const time_t *timep);
+    struct tm *localtime_r(const time_t *timep, struct tm *result);
+```
+
+为什么`localtime`是不可重入函数？因为返回的`struct tm *`是指向静态区的，在第一次调用未结束时再次调用`localtime`会把同一块静态区的内容给覆盖掉。`localtime_r`是`localtime`函数的可重入版本，要求你传入一个result作为结果的传出地址。
+
+由此得出结论：**禁止在信号处理函数中调用不可重入函数**！
+
+```c
+    void *memcpy(void *dest, const void *src, size_t n);
+```
+
+The memcpy() function  copies n bytes from memory area src to memory area dest. The memory
+areas must not overlap. Use memmove(3) if the memory areas do overlap.
+
+为什么当dest和src两块内存有重叠时要用memmove？同样是因为有重叠时的memcpy是不可重入的。
+
+
 （5）信号的响应过程
+
+思考：
+- 信号从收到到响应有一个不可避免的延迟。
+- 如何忽略一个信号？
+- 标准信号为什么要丢失？
+
 
 （6）信号常用函数
 
@@ -1346,7 +1380,7 @@ UNIX系统信号列表：
 
 ### 2. 线程
 
-## P183 ~ P186 并发 - 信号的基本概念
+## P183 ~ P184 并发 - 信号的基本概念
 
 ### 1. signal()接口
 
@@ -1397,6 +1431,172 @@ $
 
 （3）使用`CTRL+\`相当于是发送了`SIGQUIT`信号
 
+使用预定义的`SIG_IGN`忽略`SIGINT`信号：
+
+```c
+int main()
+{
+    signal(SIGINT, SIG_IGN);
+
+    for (int i = 0; i < 10; i++) {
+        write(1, "*", 1);
+        sleep(1);
+    }
+
+    exit(0);
+}
+```
+
+运行查看结果，可以看到再次输入`CTRL+C`时程序不再退出了
+
+```shell
+$ ./star
+***^C**^C****^C*$
+```
+
+收到信号时打印一个叹号：
+
+```c
+void on_sigint_handler(int s)
+{
+    write(1, "!", 1);
+}
+
+int main()
+{
+    signal(SIGINT, on_sigint_handler);
+
+    for (int i = 0; i < 10; i++) {
+        write(1, "*", 1);
+        sleep(1);
+    }
+
+    exit(0);
+}
+```
+
+运行查看结果，发现只要程序还未退出那么只要收到`SIGINT`信号，就会打印一个叹号出来。注意`^C`只是`CTRL+C`对应的回显，表示收到了一个`CTRL+C`的输入而已。
+
+```shell
+$ ./star
+****^C!**^C!*^C!*^C!**$
+```
+
+程序运行后按住`CTRL+C`不放，发现程序很快就结束了，远不到规定的10秒钟。由此得到结论**信号会打断阻塞的系统调用**！
+
+```shell
+$ ./star
+*^C!*^C!*^C!*^C!*^C!*^C!*^C!*^C!*^C!*^C!$
+```
+
+### 3. 防止EINTR信号干扰
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/mycpy.c)
+
+在mycpy程序中，由于使用的open和read以及write系统调用都是阻塞的。而信号可以打断阻塞的系统调用，所以需要对`EINTR`信号进行处理。
+
+```c
+    do {
+        sfd = open(argv[1], O_RDONLY);
+        if (sfd < 0) {
+            if (errno != EINTR) {
+                perror("open()");
+                exit(1);
+            }
+        }
+    } while (sfd < 0);
+
+
+    do {
+        dfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (dfd < 0) {
+            if (errno != EINTR) {
+                close(sfd);
+                perror("open()");
+                exit(1);
+            }
+        }
+    } while (dfd < 0);
+```
+
+解释：
+
+（1）只有errno不是EINTR时才认为open出错了，如果是被EINTR信号打断，则重试即可
+
+```c
+    while (1) {
+        len = read(sfd, buffer, BUFSIZE);
+        if (len < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("read()");
+            break;
+        }
+        if (len == 0) {
+            break;
+        }
+
+        pos = 0;
+        while (len > 0) {
+            ret = write(dfd, buffer + pos, len);
+            if (ret < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                perror("write()");
+                exit(1);
+            }
+
+            pos += ret;
+            len -= ret;
+        }
+    }
+```
+
+解释：
+
+（1）read和write这两个同步系统调用同样要防止EINTR信号的干扰
+
+## P185 ~ P186 并发 - 信号的响应过程
+
+思考三个问题：
+
+（1）信号从收到到响应有一个不可避免的延迟。
+
+（2）如何忽略一个信号？
+
+（3）标准信号为什么要丢失？
+
+（4）标准信号的响应没有严格的顺序？
+
+从进程角度讲解信号的响应过程，首先内核会为每一个进程都维护一组位图，如下所示：
+
+![信号响应过程](../media/images/Language/linux-c11.png)
+
+
+（1）mask表示信号屏蔽字，信号屏蔽字用来表示当前信号的状态
+
+（2）pending用来记录当前的进程收到了哪些信号
+
+理论上，mask和pending都是32位的，和标准信号的数量是对应的。一般情况下，mask位图值全部为1，pending位图值全部为0。
+
+（1）当接收到`SIGINT`信号时，其对应的pending位图将会被置为1。此时的信号还无法被及时响应；
+
+（2）当从Kernel态切换成User态时（被中断打断），main函数的所对应的现场（保存了addr值）将会被加入等待队列中，等待被调度。
+
+（3）当main被调度时，Kernel态切换成User态，内核会做`mask & pending`的操作，此时`SIGINT`信号的操作值为1（因为mask和pending均为1），表示收到了`SIGINT`信号
+
+（4）此时将mask和pending均置成0，同时将保存现场的addr值替换成信号处理函数的地址，去执行信号处理函数（比如打印一个叹号）。执行完毕后，再次回到内核态。信号处理函数执行完毕后，将mask恢复成1表示该信号已经被响应完毕了。
+
+（5）再次从Kernel态切换到User态，将addr值恢复成原先的值（返回main被中断处）。如果再没有信号过来，那么就会返回main被中断的地方继续执行（继续打印星号）
+
+
+为什么信号从收到到响应会有一个不可避免的时延？因为只有内核被时钟中断打断时，才能发现并处理接收到的信号。可以看到信号需要借助中断的机制来实现。
+
+如何忽略一个信号？将信号的mask位置成0即可。无法阻止信号到来，但可以选择不响应它。
+
+标准信号为什么要丢失？因为同一个响应周期内哪怕有多个信号过来，对pending的处理结果都是一样的（置为1），所以只会响应一次，也即后面的相同信号会被丢失。
 
 
 
