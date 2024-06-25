@@ -1923,7 +1923,7 @@ $ cat /tmp/out
 
 ### 4. alarm应用实例之流量控制
 
-[完整源码]()
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/mycat.c)
 
 我先实现一个没有流量控制的mycat应用，从mycpy基础上修改即可：
 
