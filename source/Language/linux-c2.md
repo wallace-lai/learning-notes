@@ -1599,4 +1599,389 @@ $ ./star
 标准信号为什么要丢失？因为同一个响应周期内哪怕有多个信号过来，对pending的处理结果都是一样的（置为1），所以只会响应一次，也即后面的相同信号会被丢失。
 
 
+## P187 并发 - 信号相关接口
+
+### 1. 接口
+
+（1）发送信号kill()
+
+```c
+    #include <sys/types.h>
+    #include <signal.h>
+
+    int kill(pid_t pid, int sig);
+```
+
+The kill() system call can be used to send any signal to any process group or process.
+
+pid的值：
+
+- If pid is positive, then signal sig is sent to the process with the ID specified by
+pid.
+
+- If  pid  equals  0,  then  sig is sent to every process in the process group of the
+calling process.
+
+- If pid equals -1, then sig is sent to every process for which the  calling  process
+has permission to send signals, except for process 1 (init), but see below.
+
+- If  pid  is  less  than  -1, then sig is sent to every process in the process group
+whose ID is -pid.
+
+sig的值：
+
+If sig is 0, then no signal is sent, but existence and permission checks are  still
+performed;  this  can be used to check for the existence of a process ID or process
+group ID that the caller is permitted to signal.
+
+返回值：
+
+On  success  (at least one signal was sent), zero is returned.  On error, -1 is re‐
+turned, and errno is set appropriately.
+
+（2）给调用线程发信号raise()
+
+```c
+    #include <signal.h>
+
+    int raise(int sig);
+```
+
+The raise() function sends a signal to the calling process or thread.  In a single-
+threaded program it is equivalent to（个人理解：**single-thread下用getpid，实际上暗示进程就是单线程**）
+```c
+    kill(getpid(), sig);
+```
+In a multithreaded program it is equivalent to
+```c
+    pthread_kill(pthread_self(), sig);
+```
+If the signal causes a handler to be called, raise() will  return  only  after  the
+signal handler has returned.
+
+返回值：
+raise() returns 0 on success, and nonzero for failure.
+
+（3）发送`SIGALRM`信号alarm()
+
+```c
+    #include <unistd.h>
+
+    unsigned int alarm(unsigned int seconds);
+```
+
+alarm()  arranges  for  a  SIGALRM signal to be delivered to the calling process in
+seconds seconds.
+
+If seconds is zero, any pending alarm is canceled.
+
+In any event any previously set alarm() is canceled.
+
+返回值：
+
+alarm() returns the number of seconds  remaining  until  any  previously  scheduled
+alarm was due to be delivered, or zero if there was no previously scheduled alarm.
+
+（4）等待信号打断pause()
+
+```c
+    #include <unistd.h>
+
+    int pause(void);
+```
+
+pause() causes the calling process (or thread) to sleep until a signal is delivered
+that either terminates the process or causes the invocation  of  a  signal-catching
+function.
+
+返回值：
+pause()  returns only when a signal was caught and the signal-catching function re‐
+turned.  In this case, pause() returns -1, and errno is set to EINTR.
+
+（5）
+
+### 2. alarm应用实例
+
+简单描述alarm的功能就是：在超过给定的秒数之后，向当前进程发送`SIGALRM`信号。而`SIGALRM`信号的默认动作是退出当前进程。
+
+```c
+int main()
+{
+    alarm(5);
+
+    while (1) {
+        ;
+    }
+
+    exit(0);
+}
+```
+
+运行程序，发现在5秒钟之后因收到`SIGALRM`信号而终止：
+
+```shell
+$ ./alarm
+Alarm clock
+```
+
+设置多个时间不同的alarm函数：
+
+```c
+int main()
+{
+    alarm(10);
+    alarm(5);
+    alarm(1);
+
+    while (1) {
+        pause();
+    }
+
+    exit(0);
+}
+```
+
+运行程序，发现在1秒钟之后，程序就终止了。说明**alarm无法应用在多任务计时上面，之后最新的alarm会生效**。
+
+
+使用pause避免CPU盲等：
+
+```c
+int main()
+{
+    alarm(10);
+    alarm(5);
+    alarm(1);
+
+    while (1) {
+        pause();
+    }
+
+    exit(0);
+}
+```
+
+pause会导致程序休眠，因此不会再空耗CPU了。
+
+注意：为了程序可移植性，不要使用`sleep()`调用，因为该调用在不同的平台上的底层实现可能不一样。如果`sleep()`调用是用alarm + pause的方式实现的，那么在sleep和alarm混用的场景下，alarm的计时就不准确了。
+
+
+
+### 3. alarm应用实例之定时循环
+
+让数从0开始不断地自增，然后在5秒钟结束后打印其值。这个案例的目的是为了比较`time()`和`alarm()`这两种计时机制的准确度。
+
+首先是使用time()实现版本：
+
+```c
+int main()
+{
+    unsigned long long count = 0;
+    time_t end = time(NULL) + 5;
+
+    while (time(NULL) < end) {
+        count++;
+    }
+
+    printf("5sec by time : %lld\n", count);
+    exit(0);
+}
+```
+
+运行程序，使用time命令查看程序实际运行时间并把结果重定向，结果如下：
+
+```shell
+$ time ./5sec > /tmp/out
+
+real    0m4.738s
+user    0m4.697s
+sys     0m0.037s
+$ cat /tmp/out
+5sec by time : 2369860683
+```
+
+```shell
+$ time ./5sec  > /tmp/out
+
+real    0m4.901s
+user    0m4.893s
+sys     0m0.006s
+$ cat /tmp/out
+5sec by time : 2487479287
+```
+
+```shell
+$ time ./5sec  > /tmp/out
+
+real    0m4.901s
+user    0m4.893s
+sys     0m0.006s
+$ cat /tmp/out
+5sec by time : 2487479287
+```
+
+然后是使用alarm()实现版本：
+
+```c
+static int need_loop = 1;
+
+static void on_alarm_handler(int s)
+{
+    need_loop = 0;
+}
+
+int main()
+{
+    alarm(5);
+    signal(SIGALRM, on_alarm_handler);
+
+    unsigned long long count = 0;
+    while (need_loop) {
+        count++;
+    }
+
+    printf("5sec by alarm : %lld\n", count);
+    exit(0);
+}
+```
+
+运行程序，查看结果如下：
+
+```shell
+$ time ./5sec_alarm  > /tmp/out
+
+real    0m5.007s
+user    0m4.987s
+sys     0m0.016s
+$ cat /tmp/out
+5sec by alarm : 6456083116
+```
+
+```shell
+$ time ./5sec_alarm  > /tmp/out
+
+real    0m5.006s
+user    0m4.974s
+sys     0m0.030s
+$ cat /tmp/out
+5sec by alarm : 6191462278
+
+$ time ./5sec_alarm  > /tmp/out
+```
+
+```shell
+real    0m5.005s
+user    0m4.977s
+sys     0m0.026s
+$ cat /tmp/out
+5sec by alarm : 7329856790
+```
+
+对比time和alarm的实现，结论如下：
+
+（1）alarm的定时精度要比time高
+
+（2）alarm所能自增的次数大概是time版本的2到3倍
+
+继续优化alarm版本，使用gcc编译并带上O1优化，发现程序死循环了！
+
+```shell
+$ gcc -O1 5sec_alarm.c
+$ ./a.out
+^C
+```
+
+为什么？因为gcc把`need_loop`值给优化掉了，编译器只加载了一次`need_loop`的值。导致其永远为真，程序陷入死循环。给`need_loop`加上`volatile`关键字，问题解决。
+
+```c
+static volatile int need_loop = 1;
+```
+
+运行加上O1优化后的程序，结果如下：
+
+```shell
+$ time ./a.out > /tmp/out
+
+real    0m5.004s
+user    0m4.975s
+sys     0m0.025s
+$ cat /tmp/out
+5sec by alarm : 20131710513
+```
+
+```shell
+$ time ./a.out > /tmp/out
+
+real    0m5.012s
+user    0m4.948s
+sys     0m0.062s
+$ cat /tmp/out
+5sec by alarm : 20263928816
+```
+
+可以看到，加上O1优化后性能几乎是翻了10倍！
+
+### 4. alarm应用实例之流量控制
+
+[完整源码]()
+
+我先实现一个没有流量控制的mycat应用，从mycpy基础上修改即可：
+
+```c
+    int sfd;
+    int dfd = 1;
+
+    do {
+        sfd = open(argv[1], O_RDONLY);
+        if (sfd < 0) {
+            if (errno != EINTR) {
+                perror("open()");
+                exit(1);
+            }
+        }
+    } while (sfd < 0);
+```
+
+解释：
+
+（1）直接设置dfd为1，即标准输出
+
+（2）打开要读取的文件
+
+```c
+    while (1) {
+        len = read(sfd, buffer, BUFSIZE);
+        if (len < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("read()");
+            break;
+        }
+        if (len == 0) {
+            break;
+        }
+
+        pos = 0;
+        while (len > 0) {
+            ret = write(dfd, buffer + pos, len);
+            if (ret < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                perror("write()");
+                exit(1);
+            }
+
+            pos += ret;
+            len -= ret;
+        }
+    }
+```
+
+解释：
+
+（1）循环从源文件中读取内容，往标准输出中打印
+
+有了alarm之后，程序开始拥有“时间观念”，流控就变得可行了。
 
