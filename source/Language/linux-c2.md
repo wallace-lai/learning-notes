@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-25 <br>
+更新：2024-06-27 <br>
 
 并发操作对应APUE上的章节为：
 
@@ -1984,4 +1984,423 @@ $ cat /tmp/out
 （1）循环从源文件中读取内容，往标准输出中打印
 
 有了alarm之后，程序开始拥有“时间观念”，流控就变得可行了。
+
+在mycat的基础之上，实现我们的slowcat程序。所谓slowcat就是每秒中打印固定大小的字符。
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/slowcat1.c)
+
+```c
+#define CPS     32
+#define BUFSIZE CPS
+
+static volatile int need_send = 0;
+
+static void on_alarm_handler(int s)
+{
+    // set next alarm signal
+    alarm(1);
+    need_send = 1;
+}
+```
+
+解释：
+（1）设定每秒钟打印32个字符，同时将buffer的大小也设置为32
+
+（2）用`need_send`变量控制是否需要开始打印
+
+（3）在响应`SIGALRM`信号时设定下一次的`SIGALRM`信号，同时将标志位置为1表示可以接着打印了
+
+```c
+    if (argc < 2) {
+        fprintf(stderr, "Usage ...\n");
+        exit(1);
+    }
+
+    signal(SIGALRM, on_alarm_handler);
+    alarm(1);
+
+    do {
+        sfd = open(argv[1], O_RDONLY);
+        if (sfd < 0) {
+            if (errno != EINTR) {
+                perror("open()");
+                exit(1);
+            }
+        }
+    } while (sfd < 0);
+```
+
+解释：
+
+（1）在执行正式操作之前，调用`signal`注册`SIGALRM`信号的响应函数
+
+（2）随后使用`alarm`设定1秒后发送`SIGALRM`信号
+
+注意：先注册信号，再调用设定alarm。否则可能信号来不及响应
+
+```c
+    while (1) {
+
+        // flow control
+        while (!need_send) {
+            pause();
+        }
+        need_send = 0;
+
+        while ((len = read(sfd, buffer, BUFSIZE)) < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("read()");
+            break;
+        }
+        if (len == 0) {
+            break;
+        }
+
+        pos = 0;
+        while (len > 0) {
+            ret = write(dfd, buffer + pos, len);
+            if (ret < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                perror("write()");
+                exit(1);
+            }
+
+            pos += ret;
+            len -= ret;
+        }
+    }
+```
+
+解释：
+
+（1）在进行读写操作前，使用`pause`来等待`need_send`为真
+
+（2）若`need_send`为真，则立刻将`need_send`置为假
+
+（3）随后进行一次读写操作
+
+注意：以上这种流控方式叫做漏桶式的流量控制，以恒定的速率打印字符。
+
+### 5. alarm应用实例之（令牌桶式）流量控制
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/slowcat2.c)
+
+所谓令牌桶式流量控制指的是空闲时刻可以积攒令牌桶，令牌桶有多大，一次就能发送多大的数据量。比如，原先1秒钟可以传输10个字节，如果暂停了3秒，则拥有了一次传输30个字节的权限。
+
+如何实现令牌桶式的流量控制呢？
+
+```c
+#define CPS     32
+#define BUFSIZE CPS
+#define BURST   10
+
+static volatile unsigned token = 0;
+
+static void on_alarm_handler(int s)
+{
+    // set next alarm signal
+    alarm(1);
+
+    // you got one token
+    token++;
+    if (token > BURST) {
+        token = BURST;
+    }
+}
+```
+
+解释：
+
+（1）定义CPS为32，即还是每秒发送32个字符
+
+（2）定义buffer大小也为32
+
+（3）定义所能持有令牌的上限BURST为10，即哪怕等待的空闲时间再多，程序最多也只能持有10个令牌
+
+（4）在`SIGALRM`信号处理函数中，除了发送下一个`SIGALRM`信号以外，需要自增令牌个数。表示每秒钟授予1个令牌
+
+（5）同时还要判断，使得令牌个数不超过上限
+
+```c
+    while (1) {
+
+        // flow control
+        while (token <= 0) {
+            pause();
+        }
+        token--;
+
+        // read and write
+        // ...
+    }
+```
+
+解释：
+
+（1）在流控部分，如果发现持有令牌数为0则需要等待被授予令牌
+
+（2）如果令牌数大于零，则在进行一次读写前需要自减令牌个数，表示已经消耗了一个令牌
+
+### 6. 将基于alarm的令牌桶式流控做成函数库
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/signal/mytbf)
+
+对于令牌桶式流控，需要对外提供以下几个接口：
+
+（1）创建一个令牌桶，用户需要提供每秒可以打印的字节数`cps`以及所能持有的最大可打印字节数`burst`
+
+（2）从令牌桶中取令牌，返回实际取得的令牌数
+
+（3）将多余未用的令牌返还给令牌桶，返回返还的令牌数
+
+（4）销毁令牌桶
+
+代码如下所示：
+
+```c
+// mytbf.h
+
+#ifndef MY_TBF_H_
+#define MY_TBF_H_
+
+typedef void mytbf_t;
+
+mytbf_t *mytbf_init(unsigned cps, unsigned burst);
+
+int mytbf_fetch_token(mytbf_t *tbf, int num);
+
+int mytbf_return_token(mytbf_t *tbf, int num);
+
+int mytbf_deinit(mytbf_t *tbf);
+
+#endif /* MY_TBF_H_ */
+```
+
+注意：这是C语言中很常见的隐藏数据结构的方式，使用`void`类型来指代具体的类型。用户光有头文件是看不到具体的数据结构的。
+
+```c
+// mytbf.c
+
+#define MAX_MYTBF_SIZE (1024)
+
+struct mytbf_s {
+    unsigned cps;
+    unsigned burst;
+    unsigned token;
+    int pos;
+};
+
+typedef void (*sighandler_t)(int);
+
+static struct mytbf_s *job[MAX_MYTBF_SIZE];
+static int mytbf_module_loaded = 0;
+static sighandler_t alarm_handler_save;
+```
+
+解释：
+
+（1）首先定义`MAX_MYTBF_SIZE`，即所能支持的最大令牌桶个数
+
+（2）定义`mytbf_s`，这个是实际的令牌桶结构。`token`是当前持有的令牌个数，`pos`是令牌桶在全局`job`数组中的下标
+
+（3）定义存放所有令牌桶的数组`job`
+
+（4）`mytbf_module_loaded`用于标记整个mytbf模块是否加载完毕
+
+（5）`alarm_handler_save`用于保存`SIGALRM`信号默认的处理函数
+
+```c
+static void on_alarm_handler(int s)
+{
+    // set next alarm signal
+    alarm(1);
+
+    // grant tokens to every job
+    for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
+        if (job[i] != NULL) {
+            job[i]->token += job[i]->cps;
+            if (job[i]->token > job[i]->burst) {
+                job[i]->token = job[i]->burst;
+            }
+        }
+    }
+}
+
+static void mytbf_module_unload();
+static void mytbf_module_load()
+{
+    if (mytbf_module_loaded) {
+        return;
+    }
+
+    alarm_handler_save = signal(SIGALRM, on_alarm_handler);
+    alarm(1);
+    mytbf_module_loaded = 1;
+
+    atexit(mytbf_module_unload);
+}
+
+static void mytbf_module_unload()
+{
+    if (!mytbf_module_loaded) {
+        return;
+    }
+
+    signal(SIGALRM, alarm_handler_save);
+    alarm(0);
+
+    for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
+        free(job[i]);
+    }
+}
+```
+
+解释：
+
+（1）在mytbf模块加载前检查`mytbf_module_loaded`标志，确保加载函数只调用一次
+
+（2）调用`signal`将`SIGALRM`信号的处理函数设置为自定义的`on_alarm_handler`函数，同时保存其默认的处理函数
+
+（3）设定闹钟，随后设置`mytbf_module_loaded`标记位为真
+
+（4）最后使用`atexit`设定进程退出时执行一遍mytbf模块卸载函数
+
+（5）mytbf模块卸载时要恢复`SIGALRM`信号处理函数，同时将创建的令牌桶给释放掉
+
+（6）信号处理函数`on_alarm_handler`要做的除了设定下一个闹钟，还要给所有的令牌桶授予令牌
+
+四个接口的实现都很简单，如下所示：
+
+```c
+mytbf_t *mytbf_init(unsigned cps, unsigned burst)
+{
+    mytbf_module_load();
+
+    int pos = get_free_pos();
+    if (pos < 0) {
+        return NULL;
+    }
+
+    struct mytbf_s *tbf = malloc(sizeof(struct mytbf_s));
+    if (tbf == NULL) {
+        return NULL;
+    }
+
+    tbf->cps = cps;
+    tbf->burst = burst;
+    tbf->token = 0;
+    tbf->pos = pos;
+    job[pos] = tbf;
+
+    return tbf;
+}
+
+int mytbf_fetch_token(mytbf_t *tbf, int num)
+{
+    if (num <= 0) {
+        return -EINVAL;
+    }
+
+    struct mytbf_s *t = (struct mytbf_s *)tbf;
+    while (t->token <= 0) {
+        pause();
+    }
+
+    int n = min(t->token, num);
+    t->token -= n;
+    return n;
+}
+
+int mytbf_return_token(mytbf_t *tbf, int num)
+{
+    if (num <= 0) {
+        return -EINVAL;
+    }
+
+    struct mytbf_s *t = (struct mytbf_s *)tbf;
+    t->token += num;
+    if (t->token > t->burst) {
+        t->token = t->burst;
+    }
+
+    return num;
+}
+
+int mytbf_deinit(mytbf_t *tbf)
+{
+    struct mytbf_s *t = (struct mytbf_s *)tbf;
+    job[t->pos] = NULL;
+    free(t);
+
+    return 0;
+}
+```
+
+如何使用上述流控库？
+
+```c
+    if (argc < 2) {
+        fprintf(stderr, "Usage ...\n");
+        exit(1);
+    }
+
+    mytbf_t *tbf = mytbf_init(CPS, BURST);
+    if (tbf == NULL) {
+        fprintf(stderr, "mytbf_init() failed.");
+        exit(1);
+    }
+```
+
+解释：
+
+（1）在程序开始前，创建一个令牌桶实例
+
+```c
+    while (1) {
+
+        // fetch token from tbf
+        unsigned size = mytbf_fetch_token(tbf, BUFSIZ);
+
+        while ((len = read(sfd, buffer, size)) < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("read()");
+            break;
+        }
+        if (len == 0) {
+            break;
+        }
+
+        // return token if lefted
+        if (size - len > 0) {
+            mytbf_return_token(tbf, size - len);
+        }
+
+        // write data
+    }
+```
+
+解释：
+
+（1）在进行读写操作之前，调用`mytbf_fetch_token`来获取令牌
+
+（2）读取`size`这么多个字节，`size`是实际取得的令牌数
+
+（3）读取完毕后，将未使用的令牌还给令牌桶
+
+```c
+    mytbf_deinit(tbf);
+
+    close(sfd);
+    exit(0);
+```
+
+解释：
+
+（1）程序结束前记得释放令牌桶
 
