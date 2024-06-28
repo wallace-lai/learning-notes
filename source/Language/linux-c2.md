@@ -1599,7 +1599,7 @@ $ ./star
 标准信号为什么要丢失？因为同一个响应周期内哪怕有多个信号过来，对pending的处理结果都是一样的（置为1），所以只会响应一次，也即后面的相同信号会被丢失。
 
 
-## P187 并发 - 信号相关接口
+## P187 ~ P195 并发 - 信号相关接口
 
 ### 1. 接口
 
@@ -2145,6 +2145,35 @@ static void on_alarm_handler(int s)
 
 （2）如果令牌数大于零，则在进行一次读写前需要自减令牌个数，表示已经消耗了一个令牌
 
+<p style="color:red;">上述代码中的一个错误：</p>
+
+仔细分析这段代码：
+
+```c
+    while (1) {
+
+        // flow control
+        while (token <= 0) {
+            pause();
+        }
+        token--;
+
+        // read and write
+        // ...
+    }
+```
+
+假如`while (token <= 0)`判断结果为真，然后在进入`pause`之前产生了信号，信号将`token`给累加了起来，不再是
+`token <= 0`了。那没关系，等下一次`alarm`的信号触发即可。
+
+但如果在`token--`的过程中产生了信号（**这概率是很小的，因为`pause`过后要大概1秒后再有新信号产生，在1秒内大概率是可以完成`token--`操作的**），那么`token`的值是不准确的。因为`token--`是先取`token`的值再减1后再存回`token`处。而`token--`这个过程不是信号原子的，即可能被信号处理函数所影响，导致`token`值不正确。
+
+**为了解决这个问题，可以将`token`设置成信号原子的`sig_atomic_t`类型**。这样就可以在信号处理函数中原子性地访问`token`，如下所示：
+
+```c
+static volatile sig_atomic_t token = 0;
+```
+
 ### 6. 将基于alarm的令牌桶式流控做成函数库
 
 [完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/signal/mytbf)
@@ -2403,4 +2432,136 @@ int mytbf_deinit(mytbf_t *tbf)
 解释：
 
 （1）程序结束前记得释放令牌桶
+
+### 7. 基于alarm的多任务计时器anytimer的实现【pending】
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/signal/anytimer)
+
+### 8. 基于setitimer的slowcat程序
+
+从上面的案例中，我们发现`alarm`的计时机制比较僵硬，因为它只能以秒为单位来进行计时。内核中的`setitimer`可以提供更为灵活的计时方案。`setitimer`基本能够满足我们计时精度的需求。
+
+```c
+    #include <sys/time.h>
+
+    int getitimer(int which, struct itimerval *curr_value);
+    int setitimer(int which, const struct itimerval *new_value,
+                    struct itimerval *old_value);
+```
+
+（1）`which`表示要设置哪种类型的时钟
+
+```
+Three types of timers—specified via the which argument—are provided, each of which  counts
+against a different clock and generates a different signal on timer expiration:
+
+ITIMER_REAL    This  timer  counts  down in real (i.e., wall clock) time.  At each expira‐
+                tion, a SIGALRM signal is generated.
+
+ITIMER_VIRTUAL This timer counts down against the  user-mode  CPU  time  consumed  by  the
+                process.  (The measurement includes CPU time consumed by all threads in the
+                process.)  At each expiration, a SIGVTALRM signal is generated.
+
+ITIMER_PROF    This timer counts down against the total (i.e., both user and  system)  CPU
+                time  consumed by the process.  (The measurement includes CPU time consumed
+                by all threads in the process.)  At each expiration, a  SIGPROF  signal  is
+                generated.
+
+                In  conjunction with ITIMER_VIRTUAL, this timer can be used to profile user
+                and system CPU time consumed by the process.
+
+A process has only one of each of the three types of timers.
+```
+
+（2）`curr_value`表示时间
+
+```
+Timer values are defined by the following structures:
+
+    struct itimerval {
+        struct timeval it_interval; /* Interval for periodic timer */
+        struct timeval it_value;    /* Time until next expiration */
+    };
+
+    struct timeval {
+        time_t      tv_sec;         /* seconds */
+        suseconds_t tv_usec;        /* microseconds */
+    };
+```
+
+注意：`setitimer`本身是周期循环的，也即不需要再像`alarm`那样在信号处理函数中进行下一次的`alarm`调用
+
+我们使用`setitimer`来实现之前的slowcat程序
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/slowcat_setitimer.c)
+
+
+```c
+static void on_alarm_handler(int s)
+{
+    // set next alarm signal
+    // alarm(1);
+    need_send = 1;
+}
+
+    signal(SIGALRM, on_alarm_handler);
+    // alarm(1);
+
+    struct itimerval itv;
+    itv.it_interval.tv_sec = 1;
+    itv.it_interval.tv_usec = 0;
+    itv.it_value.tv_sec = 1;
+    itv.it_value.tv_usec = 0;
+    ret = setitimer(ITIMER_REAL, &itv, NULL);
+    if (ret < 0) {
+        perror("setitimer()");
+        exit(1);
+    }
+```
+
+解释：
+
+（1）使用`setitimer`程序代替原先的`alarm`
+
+（2）同时在信号处理函数中不再需要继续调用`setitimer`了，它本身就是循环的
+
+### 9. abort函数
+
+```c
+#include <stdlib.h>
+
+void abort(void);
+```
+
+功能：杀掉当前进程，并生成coredump文件
+
+### 10. system函数
+
+```c
+#include <stdlib.h>
+
+int system(const char *command);
+```
+
+`system`可以看成是`few`的封装。在使用`system`的过程中，需要屏蔽掉`SIGCHLD`信号，同时忽略`SIGINT`和`SIGQUIT`信号。
+
+### 11. sleep函数
+
+```c
+#include <unistd.h>
+
+unsigned int sleep(unsigned int seconds);
+```
+
+```c
+#include <time.h>
+
+int nanosleep(const struct timespec *reg, struct timespec *rem);
+
+#include <unistd.h>
+
+int usleep(useconds_t usec);
+```
+
+不要使用`sleep`，使用`nanosleep`或者`usleep`代替之。
 
