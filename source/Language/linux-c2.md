@@ -1353,6 +1353,7 @@ areas must not overlap. Use memmove(3) if the memory areas do overlap.
 - 信号从收到到响应有一个不可避免的延迟。
 - 如何忽略一个信号？
 - 标准信号为什么要丢失？
+- 不能在信号响应函数中随意往外跳（setjmp，setlongjmp）
 
 
 （6）信号常用函数
@@ -1368,7 +1369,34 @@ areas must not overlap. Use memmove(3) if the memory areas do overlap.
 
 （7）信号集
 
+```c
+#include <signal.h>
+
+int sigemptyset(sigset_t *set);
+
+int sigfillset(sigset_t *set);
+
+int sigaddset(sigset_t *set, int signum);
+
+int sigdelset(sigset_t *set, int signum);
+
+int sigismember(const sigset_t *set, int signum);
+```
+
 （8）信号屏蔽字 / pending集合 的处理 
+
+```c
+#include <signal.h>
+
+/* Prototype for the glibc wrapper function */
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+```
+
+```c
+#include <signal.h>
+
+int sigpending(sigset_t *set);
+```
 
 （9）扩展
 
@@ -2564,4 +2592,175 @@ int usleep(useconds_t usec);
 ```
 
 不要使用`sleep`，使用`nanosleep`或者`usleep`代替之。
+
+## P196 ~ P197 并发 - 信号集
+### 1. 信号集接口
+
+```c
+#include <signal.h>
+
+int sigemptyset(sigset_t *set);
+
+int sigfillset(sigset_t *set);
+
+int sigaddset(sigset_t *set, int signum);
+
+int sigdelset(sigset_t *set, int signum);
+
+int sigismember(const sigset_t *set, int signum);
+```
+
+解释：
+（1）sigemptyset：清空信号集
+
+（2）sigfillset：将信号集set设置为全集（全选上）
+
+（3）sigaddset：往信号集set中添加信号
+
+（4）sigdelset：从集合中删掉某些信号
+
+（5）sigismember：判断信号是否存在于集合当中
+
+### 2. 信号屏蔽字
+
+```c
+#include <signal.h>
+
+/* Prototype for the glibc wrapper function */
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+```
+
+解释：
+
+（1）sigprocmask：信号屏蔽字的处理
+
+### 3. 信号屏蔽字应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/block.c)
+
+实现一个打印星号的功能，每行打印5个星号，打印期间不允许相应`SIGINT`信号，每行打印完毕才能响应信号。
+
+```c
+    sigset_t set;
+
+    signal(SIGINT, on_sigint_handler);
+
+    // clear set and add SIGINT into set
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+
+    for (int k = 0; k < 1000; k++) {
+        // block SIGINT signal
+        sigprocmask(SIG_BLOCK, &set, NULL);
+
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+
+        write(1, "\n", 1);
+        sigprocmask(SIG_UNBLOCK, &set, NULL);
+    }
+```
+
+解释：
+
+（1）创建信号集，清空后将`SIGINT`信号加入其中
+
+（2）在开始打印每行之前，阻塞掉`SIGINT`，不使其相应该信号
+
+（3）每行打印完毕后，再去掉阻塞，使其可以响应`SIGINT`信号
+
+### 4. 信号屏蔽字应用案例2
+
+同样是打印星号的程序，这次不使用`SIG_UNBLOCK`解除阻塞，使用`SIG_SETMASK`恢复。
+
+```c
+    sigset_t set;
+    sigset_t old_set;
+
+    signal(SIGINT, on_sigint_handler);
+
+    // clear set and add SIGINT into set
+    sigemptyset(&set);
+    sigemptyset(&old_set);
+    sigaddset(&set, SIGINT);
+
+    for (int k = 0; k < 1000; k++) {
+        // block SIGINT signal
+        sigprocmask(SIG_BLOCK, &set, &old_set);
+
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+
+        write(1, "\n", 1);
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+    }
+```
+
+解释：
+
+（1）在阻塞信号`SIGINT`时，保存旧的信号集信息
+
+（2）在每行打印结束前使用`SIG_SETMASK`，传入旧的信号集信息进行恢复
+
+### 5. 程序结束前恢复信号状态
+
+信号屏蔽字应用案例1中的错误：
+
+```c
+    sigset_t set;
+
+    signal(SIGINT, on_sigint_handler);
+
+    // clear set and add SIGINT into set
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+
+    for (int k = 0; k < 1000; k++) {
+        // block SIGINT signal
+        sigprocmask(SIG_BLOCK, &set, NULL);
+
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+
+        write(1, "\n", 1);
+        sigprocmask(SIG_UNBLOCK, &set, NULL);
+    }
+```
+
+**我们并不知道，程序进入到这段代码之前的状态（信号集）是怎样的，但是可以确定程序走出这段代码后的状态一定是`SIGINT`信号被解除了阻塞。假如程序进入这段代码之前的`SIGINT`信号就是被阻塞的，那么程序离开这段代码之后，`SIGINT`信号被解除了阻塞，相当于是我们破坏了程序原先的状态！**
+
+我们需要确保程序退出这段代码后，将程序恢复至原先的状态。可以这样做：
+
+```c
+    sigset_t set;
+    sigset_t save_set;
+
+    signal(SIGINT, on_sigint_handler);
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+
+    // 使用SIG_UNBLOCK保存程序原先的状态
+    sigprocmask(SIG_UNBLOCK, &set, &save_set);
+
+    // ...
+
+    // 结束前恢复原先状态
+    sigprocmask(SIG_SETMASK, &save_set, NULL);
+    exit(0);
+```
+
+### 6. sigsuspend函数
+
+```c
+#include <signal.h>
+
+int sigsuspend(const sigset_t *mask);
+```
 
