@@ -2764,3 +2764,57 @@ int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
 int sigsuspend(const sigset_t *mask);
 ```
 
+假设我们想做一个信号驱动程序，我们希望在一行星号打印结束后，立马解开信号阻塞，然后立刻使用`pause`等待一个信号，信号来到后被`pause`接住，程序开始打印下一行。
+
+```c
+    signal(SIGINT, on_sigint_handler);
+
+    // clear set and add SIGINT into set
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigprocmask(SIG_UNBLOCK, &set, &save_set);
+    for (int k = 0; k < 1000; k++) {
+        // block SIGINT signal
+        sigprocmask(SIG_BLOCK, &set, &old_set);
+
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+
+        write(1, "\n", 1);
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        pause();
+    }
+
+    sigprocmask(SIG_SETMASK, &save_set, NULL);
+    exit(0);
+```
+
+然而上述的程序并不能做到信号驱动，**在`sigprocmask`恢复信号集的一瞬间，信号就被响应了，根本轮不到`pause`来等待**。假如`sigprocmask`和`pause`能做到原子的，那么信号驱动程序才有可能
+
+使用`suspend`解决上述问题（我没看懂其实），如下所示：
+
+```c
+    for (int k = 0; k < 1000; k++) {
+        // block SIGINT signal
+        sigprocmask(SIG_BLOCK, &set, &old_set);
+
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+
+        write(1, "\n", 1);
+        sigsuspend(&old_set);
+        // sigprocmask(SIG_SETMASK, &old_set, NULL);
+        // pause();
+    }
+```
+
+### 7. sigaction函数
+
+```c
+
+```
+

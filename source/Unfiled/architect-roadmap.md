@@ -35,6 +35,7 @@ mindmap
             分布式架构
         人际沟通
         ::icon(fa fa-heart)
+            英语
             沟通技巧
             项目管理
 ```
