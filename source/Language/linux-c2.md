@@ -1401,10 +1401,11 @@ int sigpending(sigset_t *set);
 （9）扩展
 
 - sigsuspend()
-- sigaction()
-- setitimer()
+- sigaction()：代替signal
+- setitimer()：代替alarm
 
 （10）实时信号
+
 
 ### 2. 线程
 
@@ -2593,7 +2594,7 @@ int usleep(useconds_t usec);
 
 不要使用`sleep`，使用`nanosleep`或者`usleep`代替之。
 
-## P196 ~ P197 并发 - 信号集
+## P196 ~ P200 并发 - 信号集
 ### 1. 信号集接口
 
 ```c
@@ -2815,6 +2816,232 @@ int sigsuspend(const sigset_t *mask);
 ### 7. sigaction函数
 
 ```c
+#include <signal.h>
 
+int sigaction(int signum, const struct sigaction *act,
+                struct sigaction *oldact);
 ```
+
+如下所示，当有多个信号公用同一个信号处理函数时，将出现错误，因为此时的信号处理函数是不可重入的。
+```c
+static void daemon_exit(int s)
+{
+    fclose(fp);
+    closelog();
+    exit(0);
+}
+
+int main()
+{
+    signal(SIGINT, daemon_exit);
+    signal(SIGQUIT, daemon_exit);
+    signal(SIGTERM, daemon_exit);
+    // ...
+}
+```
+
+此时，可以使用`sigaction`函数来解决这个问题。
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/signal/daemon)
+
+```c
+struct sigaction sa;
+sa.sa_handler = daemon_exit;
+sigemptyset(&sa.sa_mask);
+sigaddset(&sa.sa_mask, SIGQUIT);
+sigaddset(&sa.sa_mask, SIGTERM);
+sigaddset(&sa.sa_mask, SIGINT);
+sa.sa_flags = 0;
+
+sigaction(SIGINT, &sa, NULL);
+sigaction(SIGQUIT, &sa, NULL);
+sigaction(SIGTERM, &sa, NULL);
+```
+
+在之前的案例中有一个mytbf令牌桶函数库程序，由于当时的mytbf程序没有考虑信号打断的问题，导致其很容易在外部信号的打断下造成流控功能失效。如下所示，我们应该在信号响应函数中判断信号是否来自内核。只有来自内核的信号，才需要响应，不响应用户从键盘输入的信号。
+
+```c
+static void on_alarm_handler(int s)
+{
+    // set next alarm signal
+    alarm(1);
+
+    // grant tokens to every job
+    for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
+        if (job[i] != NULL) {
+            job[i]->token += job[i]->cps;
+            if (job[i]->token > job[i]->burst) {
+                job[i]->token = job[i]->burst;
+            }
+        }
+    }
+}
+```
+
+我们重构一下mytbf程序，在信号响应函数中区分信号来源，同时用`setitimer`替换`alarm`。
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/signal/mytbf_sigaction)
+
+```c
+static void mytbf_module_load()
+{
+    int ret;
+
+    if (mytbf_module_loaded) {
+        return;
+    }
+
+    // alarm_handler_save = signal(SIGALRM, on_alarm_handler);
+    // alarm(1);
+
+    struct sigaction sa;
+    sa.sa_sigaction = on_alarm_action;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+
+    ret = sigaction(SIGALRM, &sa, &alarm_sa_save);
+    if (ret < 0) {
+        perror("sigaction()");
+        exit(1);
+    }
+
+    struct itimerval itv;
+    itv.it_interval.tv_sec = 1;
+    itv.it_interval.tv_usec = 0;
+    itv.it_value.tv_sec = 1;
+    itv.it_value.tv_usec = 0;
+
+    ret = setitimer(ITIMER_REAL, &itv, NULL);
+    if (ret < 0) {
+        perror("setitimer()");
+        exit(1);
+    }
+
+    atexit(mytbf_module_unload);
+    mytbf_module_loaded = 1;
+}
+````
+
+解释：
+
+（1）使用sigaction代替signal
+
+（2）使用setitimer代替alarm
+
+```c
+static void mytbf_module_unload()
+{
+    if (!mytbf_module_loaded) {
+        return;
+    }
+
+    // signal(SIGALRM, alarm_handler_save);
+    // alarm(0);
+
+    sigaction(SIGALRM, &alarm_sa_save, NULL);
+
+    struct itimerval itv;
+    itv.it_interval.tv_sec = 0;
+    itv.it_interval.tv_usec = 0;
+    itv.it_interval.tv_sec = 0;
+    itv.it_value.tv_usec = 0;
+    (void)setitimer(ITIMER_REAL, &itv, NULL);
+
+    for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
+        free(job[i]);
+    }
+}
+```
+
+解释：
+
+（1）恢复`SIGALRM`信号的默认处理函数
+
+（2）取消1秒钟的计时器itimer
+
+
+## P201 并发 - 实时信号与信号总结
+
+### 1. 实时信号
+为了解决标准信号的不足，出现了实时信号的概念。实时信号没有默认的处理函数，如下所示：
+
+```shell
+ 34) SIGRTMIN    35) SIGRTMIN+1  36) SIGRTMIN+2  37) SIGRTMIN+3
+38) SIGRTMIN+4  39) SIGRTMIN+5  40) SIGRTMIN+6  41) SIGRTMIN+7  42) SIGRTMIN+8
+43) SIGRTMIN+9  44) SIGRTMIN+10 45) SIGRTMIN+11 46) SIGRTMIN+12 47) SIGRTMIN+13
+48) SIGRTMIN+14 49) SIGRTMIN+15 50) SIGRTMAX-14 51) SIGRTMAX-13 52) SIGRTMAX-12
+53) SIGRTMAX-11 54) SIGRTMAX-10 55) SIGRTMAX-9  56) SIGRTMAX-8  57) SIGRTMAX-7
+58) SIGRTMAX-6  59) SIGRTMAX-5  60) SIGRTMAX-4  61) SIGRTMAX-3  62) SIGRTMAX-2
+63) SIGRTMAX-1  64) SIGRTMAX
+```
+
+实时信号与标准信号不同的是，实时信号不会有信号丢失。使用实时信号改造suspend程序，如下所示：
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/signal/suspend_rt.c)
+
+```c
+void on_myrtsig_handler(int s)
+{
+    write(1, "!", 1);
+}
+
+int main()
+{
+    sigset_t set;
+    sigset_t old_set;
+    sigset_t save_set;
+
+    signal(MYRTSIG, on_myrtsig_handler);
+
+    sigemptyset(&set);
+    sigaddset(&set, MYRTSIG);
+    sigprocmask(SIG_UNBLOCK, &set, &save_set);
+
+    sigprocmask(SIG_BLOCK, &set, &old_set);
+    for (int k = 0; k < 1000; k++) {
+        for (int i = 0; i < 5; i++) {
+            write(1, "*", 1);
+            sleep(1);
+        }
+        write(1, "\n", 1);
+        sigsuspend(&old_set);
+    }
+
+    sigprocmask(SIG_SETMASK, &save_set, NULL);
+    exit(0);
+}
+```
+
+解释：
+
+（1）实时信号与标准信号用的是同一套API接口，区别在于二者的信号值不同
+
+（2）从`SIGRTMIN`开始全都是实时信号
+
+（3）使用`ulimit -i`可以修改系统能支持的实时信号的个数
+
+```shell
+$ ulimit -a
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 15188
+max locked memory       (kbytes, -l) 65536
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 15188
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+$
+```
+
+### 2. 信号总结
+
+信号主要用于多进程间通信，使用`kill`给各进程发信号。
 
