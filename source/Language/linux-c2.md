@@ -3045,3 +3045,307 @@ $
 
 信号主要用于多进程间通信，使用`kill`给各进程发信号。
 
+## P202 并发 - 线程的概念
+
+### 1. 概念
+
+如何通俗地理解线程？可以把线程理解成**一个正在独立运行的函数**，多个线程之间是平级的的关系，不存在主次之分。多个线程运行在同一个进程地址空间内，因此线程之间的通信会更加容易实现。
+
+注意：**目前有不同的线程标准**，常见的有：
+
+（1）POSIX线程（是一套标准，而非实现）
+
+（2）OpenMP线程标准
+
+使用命令`ps axm`查看线程情况，一条`- -`表示进程（容器）中的一个线程
+
+```shell
+$ ps axm
+    PID TTY      STAT   TIME COMMAND
+      1 ?        -      0:02 /sbin/init auto automatic-ubiquity noprompt
+      - -        Ss     0:02 -
+      2 ?        -      0:00 [kthreadd]
+      - -        S      0:00 -
+      3 ?        -      0:00 [rcu_gp]
+      - -        I<     0:00 -
+      4 ?        -      0:00 [rcu_par_gp]
+      - -        I<     0:00 -
+      6 ?        -      0:00 [kworker/0:0H]
+      - -        I<     0:00 -
+      7 ?        -      0:00 [kworker/u256:0-events_freezable_power_]
+      - -        I      0:00 -
+      8 ?        -      0:00 [mm_percpu_wq]
+      - -        I<     0:00 -
+      9 ?        -      0:00 [ksoftirqd/0]
+      - -        S      0:00 -
+     10 ?        -      0:00 [rcu_sched]
+    767 ?        -      0:00 /sbin/multipathd -d -s
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+      - -        SLsl   0:00 -
+```
+
+使用命令`ps ax -L`方式查看线程情况，PID是进程号，LWP指的是轻量级进程，即线程。
+
+```shell
+$ ps ax -L
+    PID     LWP TTY      STAT   TIME COMMAND
+      1       1 ?        Ss     0:02 /sbin/init auto automatic-ubiquity noprompt
+      2       2 ?        S      0:00 [kthreadd]
+      3       3 ?        I<     0:00 [rcu_gp]
+      4       4 ?        I<     0:00 [rcu_par_gp]
+      6       6 ?        I<     0:00 [kworker/0:0H]
+      8       8 ?        I<     0:00 [mm_percpu_wq]
+      9       9 ?        S      0:00 [ksoftirqd/0]
+     10      10 ?        I      0:00 [rcu_sched]
+     11      11 ?        S      0:00 [migration/0]
+```
+
+线程标识：`pthread_t`
+
+线程标识相关的接口：
+
+（1）判断线程标识是否相等
+
+```c
+    #include <pthread.h>
+
+    int pthread_equal(pthread_t t1, pthread_t t2);
+```
+
+（2）获取当前线程的标识
+
+```c
+    #include <pthread.h>
+
+    pthread_t pthread_self(void);
+```
+
+## P203 ~ P204 并发 - 线程的创建、终止、清理、取消
+
+### 1. 创建
+
+创建线程接口：
+
+```c
+    #include <pthread.h>
+
+    int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                        void *(*start_routine) (void *), void *arg);
+```
+
+创建线程使用案例：
+
+使用`pthread_create`创建一个线程，并打印信息：
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/create1.c)
+
+```c
+static void *routine(void *ctx)
+{
+    fprintf(stdout, "[INFO] thread %d is working ...\n", (int)pthread_self());
+    return NULL;
+}
+
+int main()
+{
+    puts("Begin ...");
+
+    pthread_t tid;
+    int err = pthread_create(&tid, NULL, routine, NULL);
+    if (err) {
+        fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+        exit(1);
+    }
+
+    puts("End ...");
+    exit(0);
+}
+```
+
+查看运行结果，发现没有线程打印，因为main线程和创建的线程之间的调度取决于调度器。由于先调度的main线程，所以没有看到新建线程的打印。
+
+```shell
+$ ./a.out
+Begin ...
+End ...
+```
+
+### 2. 终止
+
+线程终止的三种方式：
+
+（1）线程从启动例程（入口函数）中返回，返回值就是线程的退出码
+
+（2）线程可以被同一进程中的其他线程取消（实际是异常终止）
+
+（3）线程调用`pthread_exit()`，只会结束当前线程
+
+线程结束接口：
+
+```c
+    #include <pthread.h>
+
+    void pthread_exit(void *retval);
+```
+
+调用`pthread_exit()`函数可以实现线程清理的功能
+
+给线程“收尸”：
+
+```c
+    #include <pthread.h>
+
+    int pthread_join(pthread_t thread, void **retval);
+```
+
+如果只“收尸”不关心线程的退出状态，则`retval`可以传`NULL`。
+
+完善上面的线程创建案例：
+
+```c
+static void *routine(void *ctx)
+{
+    fprintf(stdout, "[INFO] thread %d is working ...\n", (int)pthread_self());
+    pthread_exit(0);
+}
+
+int main()
+{
+    puts("Begin ...");
+
+    pthread_t tid;
+    int err = pthread_create(&tid, NULL, routine, NULL);
+    if (err) {
+        fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+        exit(1);
+    }
+
+    pthread_join(tid, NULL);
+    puts("End ...");
+    exit(0);
+}
+```
+
+解释：
+
+（1）线程例程（入口函数）使用`pthread_exit`退出
+
+（2）main线程使用`pthread_join`来等待新建线程的退出
+
+### 3. 清理
+
+线程栈的清理涉及到两个函数，分别是：
+
+```c
+    #include <pthread.h>
+
+    void pthread_cleanup_push(void (*routine)(void *),
+                                void *arg);
+    void pthread_cleanup_pop(int execute);
+```
+
+线程清理使用案例：
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/cleanup.c)
+
+```c
+static void clean(void *ctx)
+{
+    puts(ctx);
+}
+
+static void *routine(void *ctx)
+{
+    printf("[INFO] thread %d is working ...\n", (int)pthread_self());
+
+    // pthread_cleanup_push是宏
+    pthread_cleanup_push(clean, "clean up 1");
+    pthread_cleanup_push(clean, "clean up 2");
+    pthread_cleanup_push(clean, "clean up 3");
+
+    printf("[INFO] thread %d cleanup push over.\n", (int)pthread_self());
+
+    // pthread_cleanup_pop入参为1表示需要取出钩子函数并执行
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）使用`pthread_cleanup_push`挂上三个清理任务
+
+（2）在线程退出前使用`pthread_cleanup_pop`触发清理任务并执行
+
+（3）`pthread_cleanup_push`和`pthread_cleanup_pop`必须成对出现，否则编译不通过
+
+查看运行结果：
+
+```shell
+$ ./a.out
+[INFO] begin ...
+[INFO] thread -878016768 is working ...
+[INFO] thread -878016768 cleanup push over.
+clean up 3
+clean up 2
+clean up 1
+[INFO] end ...
+```
+
+注意：即使将`pthread_exit`放在`pthread_cleanup_pop`之前，清理任务也照样会触发并执行。如下所示：
+
+```c
+    // pthread_cleanup_push是宏
+    pthread_cleanup_push(clean, "clean up 1");
+    pthread_cleanup_push(clean, "clean up 2");
+    pthread_cleanup_push(clean, "clean up 3");
+
+    printf("[INFO] thread %d cleanup push over.\n", (int)pthread_self());
+
+    pthread_exit(NULL);
+
+    // pthread_cleanup_pop入参为1表示需要取出钩子函数并执行
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(0);
+    pthread_cleanup_pop(0);
+
+    // pthread_exit(NULL);
+```
+
+```shell
+$ ./a.out
+[INFO] begin ...
+[INFO] thread 1456027392 is working ...
+[INFO] thread 1456027392 cleanup push over.
+clean up 3
+clean up 2
+clean up 1
+[INFO] end ...
+```
+
+
+
+
+### 4. 取消
+
+## P202 并发 - 线程同步（互斥、条件变量、读写锁）
+
+## P202 并发 - 线程属性
+
+### 1. 线程属性
+
+### 2. 线程同步的属性
+
+## P202 并发 - 线程与可重入
+
+### 1. 线程与信号
+
+### 2. 线程与fork
