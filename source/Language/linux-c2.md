@@ -3125,7 +3125,7 @@ $ ps ax -L
     pthread_t pthread_self(void);
 ```
 
-## P203 ~ P204 并发 - 线程的创建、终止、清理、取消
+## P203 ~ P207 并发 - 线程的创建、终止、清理、取消、分离
 
 ### 1. 创建
 
@@ -3331,12 +3331,316 @@ clean up 1
 [INFO] end ...
 ```
 
-
-
-
 ### 4. 取消
 
-## P202 并发 - 线程同步（互斥、条件变量、读写锁）
+```c
+    #include <pthread.h>
+
+    int pthread_cancel(pthread_t thread);
+```
+
+假如有个线程所需执行的操作如下所示：
+
+```c
+fd1 = open();
+if (fd1 < 0) {
+    perror();
+    exit(1);
+}
+
+// --> pthread_cleanup_push() --> close(fd1)
+
+// receive pthread_cancel
+
+fd2 = open();
+if (fd2 < 0) {
+    perror();
+    exit(1);
+}
+
+// --> pthread_cleanup_push() --> close(fd2)
+
+close(fd1);
+close(fd2);
+```
+
+假如线程刚执行完打开`fd1`时要被`pthread_cancel`掉，那么`fd1`就无法被`close`了。如何解决这个问题？你可能会说可以使用挂载cleanup函数来解决，但这是理想情况下才能达到目的。假如线程刚打开`fd1`就被取消了，还没到挂载cleanup函数那一步，那么`fd1`依然无法被`close`。
+
+线程取消有两种状态，分别是：
+
+（1）允许
+
+- 异步取消
+- 推迟取消（默认）
+
+（2）不允许
+
+推迟取消是POSIX线程默认的取消状态，指的是**推迟至cancel点再响应**。POSIX定义的cancel点为**可能引发阻塞的系统调用**。回到刚才的例子，线程要么在打开`fd1`前响应取消，要么在打开`fd2`前响应取消，所以不存在刚打开`fd1`就取消的情况。
+
+线程取消相关接口：
+
+```c
+    #include <pthread.h>
+
+    int pthread_setcancelstate(int state, int *oldstate);
+    int pthread_setcanceltype(int type, int *oldtype);
+```
+
+（1）setcancelstate用于设置是否允许被取消
+
+（2）setcanceltype用于设置取消方式，即异步取消或者推迟取消
+
+```c
+    #include <pthread.h>
+
+    void pthread_testcancel(void);
+```
+
+（3）testcancel什么也不做，本身就是一个取消点
+
+
+### 5. 分离
+
+```c
+    #include <pthread.h>
+
+    int pthread_detach(pthread_t thread);
+```
+
+一般而言，谁创建了线程就由谁来负责所创建线程资源的回收。但如果分离了该线程，则新建线程与创建者之间就没有了任何关系，创建者没有回收新建线程的资源的责任义务了。已经分离了的线程不可再`pthread_join`了。
+
+### 6. 线程使用案例之素数筛选
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/primer0.c)
+
+将之前素数筛选的程序改造成多线程版本，如下所示：
+
+```c
+    pthread_t tid[THREAD_NUM];
+
+    for (int i = BEG; i <= END; i++) {
+        err = pthread_create(&tid[i - BEG], NULL, routine, &i);
+        if (err) {
+            fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    for (int i = BEG; i <= END; i++) {
+        pthread_join(tid[i - BEG], NULL);
+    }
+
+    exit(0);
+```
+
+解释：
+
+（1）main线程负责创建线程，创建完毕后使用`pthread_join`等待线程运行完毕
+
+```c
+static void *routine(void *ctx)
+{
+    int i = *(int *)ctx;
+    int mark = 1;
+
+    for (int p = 2; p < i / 2; p++) {
+        if (i % p == 0) {
+            mark = 0;
+            break;
+        }
+    }
+
+    if (mark) {
+        printf("%d is a primer.\n", i);
+    }
+
+    return NULL;
+}
+```
+
+解释：
+
+（1）线程负责判断`i`是否为素数
+
+
+运行程序，查看结果：
+
+```shell
+$ ./a.out
+30000001 is a primer.
+30000023 is a primer.
+30000049 is a primer.
+$ ./a.out
+30000041 is a primer.
+30000041 is a primer.
+30000059 is a primer.
+30000049 is a primer.
+$ ./a.out
+30000193 is a primer.
+30000001 is a primer.
+30000037 is a primer.
+30000023 is a primer.
+```
+
+可以看到结果不对，为什么？**原因在于你所创建的201个线程的入参都是变量i的地址，所以这201个线程对变量i的地址产生了竞争。很有可能有多个线程通过变量i的地址拿到了同一个数**。
+
+```c
+    err = pthread_create(&tid[i - BEG], NULL, routine, &i);
+```
+
+如何解决？有个最简单粗暴的方法是将`int`强转成`void *`，如下所示：
+
+```c
+static void *routine(void *ctx)
+{
+    int i = (int)ctx;
+    // ...
+}
+
+// main()
+    // ...
+    for (int i = BEG; i <= END; i++) {
+        err = pthread_create(&tid[i - BEG], NULL, routine, (void *)i);
+        // ...
+    }
+```
+
+### 7. 线程使用案例之素数筛选（合理版）
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/primer0_e.c)
+
+如果使用`int`强转成`void *`的方式，那么会出现一个编译告警。下面是相对更合理的做法：
+
+```c
+    pthread_t tid[THREAD_NUM];
+
+    for (int i = BEG; i <= END; i++) {
+        // 为每个线程malloc一块空间用于传参
+        thread_argument_t *p = (thread_argument_t *)malloc(sizeof(thread_argument_t));
+        if (p == NULL) {
+            perror("malloc()");
+            exit(1);
+        }
+        p->n = i;
+
+        err = pthread_create(&tid[i - BEG], NULL, routine, p);
+        if (err) {
+            fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    for (int i = BEG; i <= END; i++) {
+        // 线程将其持有的地址传回，在main线程中释放
+        pthread_join(tid[i - BEG], &ptr);
+        free(ptr);
+    }
+```
+
+```c
+typedef struct thread_argument_s {
+    int n;
+} thread_argument_t;
+
+static void *routine(void *ctx)
+{
+    thread_argument_t *p = (thread_argument_t *)ctx;
+    int i = p->n;
+
+    // ...
+
+    pthread_exit(p);
+}
+```
+
+
+解释：
+
+（1）在main线程中为每个子线程申请一块内存空间用于传递参数
+
+（2）为了保证malloc和free能在main线程中执行，子线程需要通过`pthread_exit`将指针传回
+
+实际上，完全可以不使用动态内存分配的，可以使用数组来代替。完整代码如下所示：[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/primer0_x.c)
+
+<p style="color:red;">注意：</p>
+
+上述代码仍然是有问题的，受限于系统stack size的大小限制（使用默认stack size的情况下），一个系统所能创建的线程个数是有上限的。当要筛选的素数范围变大时，我们很难再使用一个数就创建一个线程这种“富裕”的方式了。于是，最终的解决方案又变成了之前提到过的池类算法上，即用有限个数的线程池去竞争任务。
+
+
+## P208 并发 - 线程同步（互斥、条件变量、读写锁）
+
+一个有着严重竞争故障的多线程程序如下：
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/add.c)
+
+```c
+// add.c
+#define THREAD_NUM 20
+#define FNAME      "/tmp/out"
+#define LINE_SIZE  512
+
+static void *routine(void *ctx)
+{
+    FILE *f = fopen(FNAME, "r+");
+    if (f == NULL) {
+        perror("fopen()");
+        pthread_exit(NULL);
+    }
+
+    char linebuf[LINE_SIZE];
+    fgets(linebuf, LINE_SIZE, f);
+    int num = atoi(linebuf) + 1;
+
+    fseek(f, 0, SEEK_SET);
+    fprintf(f, "%d\n", num);
+
+    fclose(f);
+    pthread_exit(NULL);
+}
+```
+
+运行程序查看结果如下所示，发现结果是乱的：
+
+```shell
+$ echo 0 > /tmp/out
+$ ./a.out
+$ cat /tmp/out
+17
+$ echo 0 > /tmp/out
+$ ./a.out
+$ cat /tmp/out
+17
+$ echo 0 > /tmp/out
+$ ./a.out
+$ cat /tmp/out
+20
+```
+
+为什么上述程序达不到目的：**因为20个线程在竞争同一个文件**。
+
+### 1. 互斥量相关接口
+
+（1）创建与销毁
+
+```c
+    #include <pthread.h>
+
+    int pthread_mutex_destroy(pthread_mutex_t *mutex);
+    int pthread_mutex_init(pthread_mutex_t *restrict mutex,
+        const pthread_mutexattr_t *restrict attr);
+
+    pthread_mutext_t mutex = PTHREAD_MUTEX_INITIALIZER;
+```
+
+（2）加锁与解锁
+
+```c
+    #include <pthread.h>
+
+    int pthread_mutex_lock(pthread_mutex_t *mutex);
+    int pthread_mutex_trylock(pthread_mutex_t *mutex);
+    int pthread_mutex_unlock(pthread_mutex_t *mutex);
+```
 
 ## P202 并发 - 线程属性
 
