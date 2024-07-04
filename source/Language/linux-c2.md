@@ -3567,7 +3567,7 @@ static void *routine(void *ctx)
 上述代码仍然是有问题的，受限于系统stack size的大小限制（使用默认stack size的情况下），一个系统所能创建的线程个数是有上限的。当要筛选的素数范围变大时，我们很难再使用一个数就创建一个线程这种“富裕”的方式了。于是，最终的解决方案又变成了之前提到过的池类算法上，即用有限个数的线程池去竞争任务。
 
 
-## P208 并发 - 线程同步（互斥、条件变量、读写锁）
+## P208 ~ P210 并发 - 线程同步（互斥、条件变量、读写锁）
 
 一个有着严重竞争故障的多线程程序如下：
 
@@ -3618,7 +3618,7 @@ $ cat /tmp/out
 
 为什么上述程序达不到目的：**因为20个线程在竞争同一个文件**。
 
-### 1. 互斥量相关接口
+### 1. 互斥
 
 （1）创建与销毁
 
@@ -3641,6 +3641,272 @@ $ cat /tmp/out
     int pthread_mutex_trylock(pthread_mutex_t *mutex);
     int pthread_mutex_unlock(pthread_mutex_t *mutex);
 ```
+
+### 2. 互斥锁的应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/add_e.c)
+
+我们使用互斥锁解决上一个案例中的线程竞争问题，代码如下：
+
+```c
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void *routine(void *ctx)
+{
+    FILE *f = fopen(FNAME, "r+");
+    if (f == NULL) {
+        perror("fopen()");
+        pthread_exit(NULL);
+    }
+
+    char linebuf[LINE_SIZE];
+
+    pthread_mutex_lock(&lock);
+    fgets(linebuf, LINE_SIZE, f);
+    int num = atoi(linebuf) + 1;
+    fseek(f, 0, SEEK_SET);
+    fprintf(f, "%d\n", num);
+    fflush(f);
+    pthread_mutex_unlock(&lock);
+
+    fclose(f);
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）将线程读取和写入步骤用锁保护起来，这样就能解决线程竞争问题
+
+### 3. 互斥锁的应用案例2
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/abcd.c)
+
+我们需要创建四个线程，每个线程分别打印A、B、C、D四个字母，要求四个线程按字母顺序打印这四个字母。
+
+```c
+static int idx[THREAD_NUM];
+static pthread_mutex_t mtx[THREAD_NUM];
+
+int main()
+{
+    // ...
+
+    for (int i = 0; i < THREAD_NUM; i++) {
+        pthread_mutex_init(&mtx[i], NULL);
+        pthread_mutex_lock(&mtx[i]);
+
+        idx[i] = i;
+        err = pthread_create(&tid[i], NULL, routine, (void *)(&idx[i]));
+        if (err) {
+            fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    pthread_mutex_unlock(&mtx[0]);
+
+    alarm(2);
+    for (int i = 0; i < THREAD_NUM; i++) {
+        pthread_join(tid[i], NULL);
+    }
+    exit(0);
+}
+```
+
+解释：
+
+（1）创建全局的idx，用于给线程传递线程序号；创建全局的mtx，用于控制4个线程是否打印
+
+（2）在创建线程之前，先初始化其对应的锁，然后立刻锁住，这样稍后创建线程后，线程不会立马开始打印
+
+（3）线程创建完毕后，打开第一个线程的锁，让A先打印
+
+（4）最后是设置一个2秒的闹钟，然后等待线程被闹钟信号终止
+
+```c
+static int next(int i)
+{
+    if (i + 1 == THREAD_NUM) {
+        return 0;
+    }
+
+    return i + 1;
+}
+
+static void *routine(void *ctx)
+{
+    int i = *(int *)ctx;
+    char c = 'A' + i;
+
+    while (1) {
+        pthread_mutex_lock(&mtx[i]);
+        write(STDOUT_FILENO, &c, 1);
+        pthread_mutex_unlock(&mtx[next(i)]);
+    }
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）新建线程根据自己的序号，打印对应的字母
+
+（2）在打印前需要先对自己的这把锁加锁，如果这把锁被锁住了，那么加锁不会成功，线程会阻塞在此处
+
+（3）如果能加锁成功，则打印一个字母，然后将后面一个线程的锁给解开，让后面这个线程可以打印
+
+（4）使用next函数获取后面一个线程的序号
+
+### 4. 互斥锁的应用案例 - 任务池
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/primer0_pool_busy.c)
+
+任务池设计：维护一个全局变量用于存储数据，main线程往该变量中发送数字，其他线程竞争该变量取出其中的数据，判断其是否为素数。规定：
+
+（1）变量num大于0表示num是一个任务
+
+（2）变量num等于0表示当前无任务
+
+（3）变量num等于-1表示全部任务结束
+
+这次的任务池暂时用**忙等法**实现，后续再改造成通知法。
+
+**主线程逻辑**
+
+```c
+static int num;
+static int idx[THREAD_NUM];
+static pthread_mutex_t mtx;
+
+int main()
+{
+    // ...
+
+    // 1. 初始化num和mtx
+    num = 0;
+    pthread_mutex_init(&mtx, NULL);
+
+    // 2. 创建四个线程
+    for (int i = 0; i < THREAD_NUM; i++) {
+        idx[i] = i;
+
+        err = pthread_create(&tid[i], NULL, routine, (void *)(&idx[i]));
+        if (err) {
+            fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    // 3. 下发任务
+    for (int i = BEG; i <= END; i++) {
+        while (1) {
+            pthread_mutex_lock(&mtx);
+
+            // 上一次下发的任务还未执行完毕
+            if (num != 0) {
+                pthread_mutex_unlock(&mtx);
+                sched_yield();  // 让出调度器，让线程有机会拿到锁并执行任务
+                continue;
+            }
+
+            // 当前任务成功下发
+            num = i;
+            pthread_mutex_unlock(&mtx);
+            break;
+        }
+    }
+
+    // 4. 下发完毕后查看num是否为0，若是则下发-1
+    while (1) {
+        pthread_mutex_lock(&mtx);
+
+        // 还有任务未执行完毕
+        if (num != 0) {
+            pthread_mutex_unlock(&mtx);
+            sched_yield();
+            continue;
+        }
+
+        // 成功下发-1
+        num = -1;
+        pthread_mutex_unlock(&mtx);
+        break;
+    }
+
+    // 5. 等待线程执行完毕
+    for (int i = 0; i < THREAD_NUM; i++) {
+        pthread_join(tid[i], NULL);
+    }
+    exit(0);
+}
+```
+
+解释：
+
+（1）创建全局变量num用于存储任务；创建idx数组用于向线程传递线程序号；mtx用于对num加锁
+
+（2）main线程首先初始化num为0表示无任务，同时初始化互斥锁mtx
+
+（3）随后创建4个线程
+
+（4）线程创建完毕后，main线程开始下发任务，对于每个任务的下发都使用`while (1)`忙等的形式
+
+（5）对于每个任务的下发，首先对mtx加锁，判断num值。如果num不为0表示上次下发的任务还未执行完毕。此时，需要主动让出调度器，让工作线程有机会得到调度；如果num为0则下发任务，将num修改为任务号i，随后解锁退出循环表示成功下发了一个任务；
+
+（6）当所有的任务都下发完毕后，则下发-1表示所有任务都已经结束
+
+（7）最后，main线程等待所有线程执行完毕
+
+**子线程逻辑**
+
+```c
+static void *routine(void *ctx)
+{
+    int copy;
+    int idx = *(int *)ctx;
+
+    while (1) {
+        pthread_mutex_lock(&mtx);
+
+        // 当前无任务
+        if (num == 0) {
+            pthread_mutex_unlock(&mtx);
+            sched_yield();
+            continue;
+        }
+
+        // 所有任务执行结束
+        if (num == -1) {
+            pthread_mutex_unlock(&mtx);
+            break;
+        }
+
+        // 当前有任务，执行之
+        copy = num;
+        num = 0;   // num清零表示任务消费完毕
+        pthread_mutex_unlock(&mtx);
+
+        if (is_primer(copy)) {
+            fprintf(stdout, "[%d] %d is primer\n", idx, copy);
+        }
+    }
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）子线程需要不断地循环，直到发现所有任务都已经执行完毕为止
+
+（2）子线程如果发现num为0，表示此时没有任务到来，则解锁并让出调度器
+
+（3）子线程如果发现num为-1，表示此时所有任务都执行完毕，则跳出循环结束整个子线程
+
+（4）子线程如果发现num大于0，则执行此任务
+
 
 ## P202 并发 - 线程属性
 
