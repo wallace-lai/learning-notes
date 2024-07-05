@@ -3907,6 +3907,27 @@ static void *routine(void *ctx)
 
 （4）子线程如果发现num大于0，则执行此任务
 
+### 5. 动态初始化一次
+
+```c
+    #include <pthread.h>
+
+    int pthread_once(pthread_once_t *once_control,
+        void (*init_routine)(void));
+    pthread_once_t once_control = PTHREAD_ONCE_INIT;
+```
+
+### 6. 互斥锁的应用案例 - 忙等式的多线程令牌桶的实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/thread/posix/mytbf_mt)
+
+【有待重构】
+
+### 7. 条件变量
+
+```c
+
+```
 
 ## P202 并发 - 线程属性
 
