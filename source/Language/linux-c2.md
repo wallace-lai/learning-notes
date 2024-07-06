@@ -4278,6 +4278,58 @@ static void *routine(void *ctx)
 
 （2）如果轮到当前线程打印，则打印字符，然后修改`num`值为下一个线程序号，然后通知所有的线程
 
+### 10. 信号量
+
+POSIX标准定义了两类信号量：
+
+（1）无名信号量：也称为POSIX信号量，主要用于同一进程内的线程同步
+
+（2）有名信号量：这些信号量通过文件系统中的一个名字来标识，可以在不同进程之间共享
+
+**无名信号量**
+
+（1）初始化
+
+```c
+    #include <semaphore.h>
+
+    int sem_init(sem_t *sem, int pshared, unsigned int value);
+```
+
+（2）等待（P操作）
+
+```c
+    #include <semaphore.h>
+
+    int sem_wait(sem_t *sem);
+
+    int sem_trywait(sem_t *sem);
+
+    int sem_timedwait(sem_t *sem, const struct timespec *abs_timeout);
+```
+
+（3）信号（V操作）
+
+```c
+    #include <semaphore.h>
+
+    int sem_post(sem_t *sem);
+```
+
+（4）销毁信号量
+
+```c
+    #include <semaphore.h>
+
+    int sem_destroy(sem_t *sem);
+```
+
+### 11. 信号量应用案例 - 使用互斥锁和条件变量实现仿信号量实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/thread/posix/mysem)
+
+我们实现仿信号量，让筛选质数的程序控制所能启动的线程个数限制在4个以内。代码比较简单，不做注释了。
+
 
 ## P202 并发 - 线程属性
 
