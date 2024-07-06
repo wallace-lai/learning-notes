@@ -3567,7 +3567,7 @@ static void *routine(void *ctx)
 上述代码仍然是有问题的，受限于系统stack size的大小限制（使用默认stack size的情况下），一个系统所能创建的线程个数是有上限的。当要筛选的素数范围变大时，我们很难再使用一个数就创建一个线程这种“富裕”的方式了。于是，最终的解决方案又变成了之前提到过的池类算法上，即用有限个数的线程池去竞争任务。
 
 
-## P208 ~ P210 并发 - 线程同步（互斥、条件变量、读写锁）
+## P208 ~ P214 并发 - 线程同步（互斥、条件变量、读写锁）
 
 一个有着严重竞争故障的多线程程序如下：
 
@@ -3917,17 +3917,367 @@ static void *routine(void *ctx)
     pthread_once_t once_control = PTHREAD_ONCE_INIT;
 ```
 
+使用案例如下所示：
+
+```c
+static void module_load_impl(void)
+{
+    int err = pthread_create(&worker, NULL, worker_routine, NULL);
+    if (err) {
+        fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+        pthread_exit(NULL);
+    }
+}
+
+void mytbf_module_load()
+{
+    (void)pthread_once(&once_control, module_load_impl);
+}
+```
+
 ### 6. 互斥锁的应用案例 - 忙等式的多线程令牌桶的实现
 
 [完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/thread/posix/mytbf_mt)
 
-【有待重构】
+**对外接口**
+
+```c
+#ifndef MY_TBF_H_
+#define MY_TBF_H_
+
+typedef void mytbf_t;
+
+mytbf_t *mytbf_init(unsigned cps, unsigned burst);
+
+int mytbf_fetch_token(mytbf_t *tbf, int num);
+
+int mytbf_return_token(mytbf_t *tbf, int num);
+
+int mytbf_deinit(mytbf_t *tbf);
+
+void mytbf_module_load();
+
+void mytbf_module_unload();
+
+#endif /* MY_TBF_H_ */
+```
+
+解释：
+
+（1）对于模块中的公共全局变量，放在`mytbf_module_load`和`mytbf_module_unloaad`中申请和释放。要求用户在使用mytbf之前调用load函数进行初始化，在结束前调用unload函数进行释放资源
+
+**全局变量**
+
+```c
+struct mytbf_s {
+    pthread_mutex_t mtx;
+    unsigned cps;
+    unsigned burst;
+    unsigned token;
+    int pos;
+};
+
+static pthread_t worker;
+
+static struct mytbf_s *job[MAX_MYTBF_SIZE];
+static pthread_mutex_t job_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+```
+
+解释：
+
+（1）每个`mytbf_s`实例中包含一个互斥锁，相当于房门；还有一个`job_mtx`相当于大院门
+
+（2）线程号`worker`是后台线程，用于分配token
+
+（3）`job`用于保存所有的`mytbf_s`实例；`once_control`用于`pthread_once`的入参
+
+**分配token**
+
+```c
+static void *worker_routine(void *ctx)
+{
+    int ret = 0;
+    struct timespec req;
+    struct timespec rem;
+
+    while (1) {
+        // 计时1秒
+        req.tv_sec = 1;
+        req.tv_nsec = 0;
+        while (1) {
+            ret = nanosleep(&req, &rem);
+            if (ret == 0) {
+                break;
+            } else if (ret < 0 && errno == EINTR) {
+                if (rem.tv_sec > 0 || rem.tv_nsec > 0) {
+                    req = rem;
+                    continue;
+                }
+            } else {
+                perror("nanosleep()");
+                pthread_exit(NULL);
+            }
+        }
+
+        // 加token
+        pthread_mutex_lock(&job_mtx);
+        for (int i = 0; i < MAX_MYTBF_SIZE; i++) {
+            if (job[i] != NULL) {
+                pthread_mutex_lock(&job[i]->mtx);
+                job[i]->token += job[i]->cps;
+                if (job[i]->token > job[i]->burst) {
+                    job[i]->token = job[i]->burst;
+                }
+                pthread_mutex_unlock(&job[i]->mtx);
+            }
+        }
+        pthread_mutex_unlock(&job_mtx);
+    }
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）先计时1秒，然后再给每个`mytbf_s`实例给分配token
+
 
 ### 7. 条件变量
 
-```c
+**创建条件变量**
 
+```c
+    #include <pthread.h>
+
+    int pthread_cond_destroy(pthread_cond_t *cond);
+    int pthread_cond_init(pthread_cond_t *restrict cond,
+        const pthread_condattr_t *restrict attr);
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 ```
+
+**唤醒阻塞的线程**
+
+```c
+    #include <pthread.h>
+
+    int pthread_cond_broadcast(pthread_cond_t *cond);
+    int pthread_cond_signal(pthread_cond_t *cond);
+```
+
+（1）`broadcast`会将所有阻塞在该条件变量上的线程给唤醒，唤醒后谁抢锁成功算谁的，抢锁不成功的线程继续阻塞
+
+（2）`signal`则只会唤醒一个阻塞在该条件变量上的线程，至于唤醒谁，不知道
+
+**等待条件满足**
+
+```c
+    #include <pthread.h>
+
+    int pthread_cond_timedwait(pthread_cond_t *restrict cond,
+        pthread_mutex_t *restrict mutex,
+        const struct timespec *restrict abstime);
+    int pthread_cond_wait(pthread_cond_t *restrict cond,
+        pthread_mutex_t *restrict mutex);
+```
+
+（1）`timedwait`是带了时间的等待，`wait`是死等
+
+（2）注意条件变量要和互斥锁联合起来使用（**为啥不让条件变量也具有互斥锁的功能，直接合二为一**？）
+
+### 8. 条件变量应用案例 - 非忙等的素数筛选程序
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/primer0_pool_cond.c)
+
+**全局变量**
+
+```c
+static int num;
+static pthread_mutex_t mtx_num = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cond_num = PTHREAD_COND_INITIALIZER;
+```
+
+解释：
+
+（1）为了配合多线程共享的`num`，需要同时配置互斥锁和条件变量
+
+**主函数**
+
+```c
+int main()
+{
+    // ...
+
+    // 初始化num
+    num = 0;
+
+    // 创建四个线程
+    for (int i = 0; i < THREAD_NUM; i++) {
+        // ...
+    }
+
+    // 下发任务
+    for (int i = BEG; i <= END; i++) {
+
+        pthread_mutex_lock(&mtx_num);
+        while (num != 0) {
+            pthread_cond_wait(&cond_num, &mtx_num);
+        }
+
+        num = i;
+        pthread_cond_signal(&cond_num);
+        pthread_mutex_unlock(&mtx_num);
+    }
+
+    // 下发完毕后查看num是否为0，若是则下发-1
+    pthread_mutex_lock(&mtx_num);
+    while (num != 0) {
+        pthread_cond_wait(&cond_num, &mtx_num);
+    }
+
+    num = -1;
+    pthread_cond_broadcast(&cond_num);
+    pthread_mutex_unlock(&mtx_num);
+
+
+    // 等待线程执行完毕
+    for (int i = 0; i < THREAD_NUM; i++) {
+        pthread_join(tid[i], NULL);
+    }
+
+    pthread_mutex_destroy(&mtx_num);
+    pthread_cond_destroy(&cond_num);
+
+    exit(0);
+}
+```
+
+解释：
+
+（1）在下发任务时，需要先锁住`mtx_num`，当`num`的值不为0时等待，这里用的是条件变量，等待`num`值发生变化时发送通知。收到通知后如果`num`值真的变成了0，再继续往下执行。
+
+注意：**`pthread_cond_wait`的机制是这样，首先解锁等待通知。收到通知后并且再次加锁成功后再往下走。也即，如果`num`变成了0，程序往下走时，`mtx_num`是被锁上了的。这样做的结果就是，程序中不存在忙等行为了，不需要不间断地执行加锁、检查、解锁并让出CPU这一系列操作**。
+
+（2）随后，将`num`赋值为`i`，表示下发任务。任务下发后发送`num`值已经更改的通知然后解锁`mtx_num`。由于4个子线程都是一样的，唤醒一个即可，所以用`pthread_cond_signal`。
+
+（3）所有任务下发完毕后，main线程需要检查所有任务是否执行完毕，同样要条件等待任务执行完毕。
+
+（4）所有任务执行完毕后，下发`-1`表示任务执行完毕，使用`pthread_cond_broadcast`通知所有的子线程，解锁`mtx_num`
+
+（5）最后main线程需要等待所有子线程运行完毕，最后释放`mtx_num`和`cond_num`
+
+**子线程**
+
+```c
+static void *routine(void *ctx)
+{
+    // ...
+
+    while (1) {
+        pthread_mutex_lock(&mtx_num);
+        while (num == 0) {
+            pthread_cond_wait(&cond_num, &mtx_num);
+        }
+
+        if (num == -1) {
+            pthread_mutex_unlock(&mtx_num);
+            break;
+        }
+
+        copy = num;
+        num = 0;
+        pthread_cond_broadcast(&cond_num);
+        pthread_mutex_unlock(&mtx_num);
+
+        if (is_primer(copy)) {
+            fprintf(stdout, "[%d] %d is primer\n", idx, copy);
+        }
+    }
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）对于子线程，如果`num`为0，表示此时无任务可执行，因此需要条件等待直到`num`值不为0
+
+（2）当`num`值不为0时，如果发现其值为-1，无任务可执行，终止线程的执行
+
+（3）否则，拷贝一份`num`的值，然后将`num`重新置为0表示当前任务被抢走了，然后通知main线程，最后解锁`mtx_num`
+
+注意：由于`pthread_cond_signal`只能通知到一个线程（不一定是main线程），所以需要使用`pthread_cond_broadcast`，采用广播的形式，确保能通知到main线程
+
+（4）最后执行任务，重新开启下一轮循环
+
+### 9. 条件变量应用案例 - 非忙等的顺序打印
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/con/parallel/thread/posix/abcd_cond.c)
+
+要求4个线程，按字母表顺序依次打印A、B、C、D字符，采用条件变量的方式实现。实现思路如下：
+
+（1）使用全局的`num`值控制哪个线程来打印字符
+
+（2）第一个线程打印完字符后，修改`num`为下一个线程的序号，然后采用广播的方式通知另外3个线程
+
+（3）依次类推，不停地往下执行
+
+**主函数**
+
+```c
+    num = 0;
+    for (int i = 0; i < THREAD_NUM; i++) {
+        idx[i] = i;
+        err = pthread_create(&tid[i], NULL, routine, (void *)(&idx[i]));
+        if (err) {
+            fprintf(stderr, "pthread_create() : %s\n", strerror(err));
+            exit(1);
+        }
+    }
+
+    alarm(2);
+
+    for (int i = 0; i < THREAD_NUM; i++) {
+        pthread_join(tid[i], NULL);
+    }
+```
+
+解释：
+
+（1）主函数负责创建子线程，并赋值`num`为0，表示先打印A
+
+**子线程**
+
+```c
+static void *routine(void *ctx)
+{
+    int i = *(int *)ctx;
+    char c = 'A' + i;
+
+    while (1) {
+        pthread_mutex_lock(&mtx_num);
+        while (num != i) {
+            pthread_cond_wait(&cond_num, &mtx_num);
+        }
+
+        write(STDOUT_FILENO, &c, 1);
+        num = next(num);
+        pthread_cond_broadcast(&cond_num);
+        pthread_mutex_unlock(&mtx_num);
+    }
+
+    pthread_exit(NULL);
+}
+```
+
+解释：
+
+（1）子线程需要条件等待，直到`num`值和当前线程序号相等，才能打印字符
+
+（2）如果轮到当前线程打印，则打印字符，然后修改`num`值为下一个线程序号，然后通知所有的线程
+
 
 ## P202 并发 - 线程属性
 
