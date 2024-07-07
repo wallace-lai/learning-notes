@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-06-27 <br>
+更新：2024-07-08 <br>
 
 并发操作对应APUE上的章节为：
 
@@ -3567,7 +3567,7 @@ static void *routine(void *ctx)
 上述代码仍然是有问题的，受限于系统stack size的大小限制（使用默认stack size的情况下），一个系统所能创建的线程个数是有上限的。当要筛选的素数范围变大时，我们很难再使用一个数就创建一个线程这种“富裕”的方式了。于是，最终的解决方案又变成了之前提到过的池类算法上，即用有限个数的线程池去竞争任务。
 
 
-## P208 ~ P214 并发 - 线程同步（互斥、条件变量、读写锁）
+## P208 ~ P215 并发 - 线程同步（互斥、条件变量、读写锁）
 
 一个有着严重竞争故障的多线程程序如下：
 
@@ -4330,15 +4330,147 @@ POSIX标准定义了两类信号量：
 
 我们实现仿信号量，让筛选质数的程序控制所能启动的线程个数限制在4个以内。代码比较简单，不做注释了。
 
+### 12. 读写锁
 
-## P202 并发 - 线程属性
+读写锁的原理：读时共享、写时互斥
+
+
+## P216 ~ P217 并发 - 线程属性（互斥量属性、条件变量属性）
 
 ### 1. 线程属性
 
-### 2. 线程同步的属性
+```c
+    #include <pthread.h>
 
-## P202 并发 - 线程与可重入
+    int pthread_attr_init(pthread_attr_t *attr);
+    int pthread_attr_destroy(pthread_attr_t *attr);
+```
+
+**相关属性设置接口**
+
+```c
+    pthread_attr_setaffinity_np
+    pthread_attr_setdetachstate
+    pthread_attr_setguardsize
+    pthread_attr_setinheritsched
+    pthread_attr_setschedparam
+    pthread_attr_setschedpolicy
+    pthread_attr_setscope
+    pthread_attr_setstack
+    pthread_attr_setstackaddr
+    pthread_attr_setstacksize
+    pthread_create
+    pthread_getattr_np
+    pthread_setattr_default_np
+    pthreads
+```
+
+### 2. 互斥量属性
+
+```c
+    #include <pthread.h>
+
+    int pthread_mutexattr_destroy(pthread_mutexattr_t *attr);
+    int pthread_mutexattr_init(pthread_mutexattr_t *attr);
+
+    int pthread_mutexattr_getpshared(const pthread_mutexattr_t *attr, int *pshared);
+    int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared);
+```
+
+**系统调用clone**
+
+```c
+    #define _GNU_SOURCE
+    #include <sched.h>
+
+    int clone(int (*fn)(void *), void *stack, int flags, void *arg, ...
+                /* pid_t *parent_tid, void *tls, pid_t *child_tid */ );
+```
+
+clone系统调用可以通过flags控制，父子之间什么可以公用，什么不可公用。理论上，你可以使用该系统调用创建出一个既不是进程也不是线程，即介于二者之间，的东西出来。
+
+```c
+    int pthread_mutexattr_gettype(const pthread_mutexattr_t *restrict attr,
+        int *restrict type);
+    int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type);
+```
+
+### 3. 条件变量的属性
+
+```c
+pthread_condattr_init()
+pthread_condattr_destroy()
+```
+
+## P218 并发 - 线程与可重入
+
+多线程中的IO都是线程可重入的，如果函数是不可重入的，那么函数名后会带`_unbloced`后缀。
+
 
 ### 1. 线程与信号
 
+多线程情况下，进程内的每个线程都有对应的mask和pending位图。以进程为单位，进程只有pending位图。进程A给进程B发送的信号会体现在进程B的pending位图上。
+
+由于线程才是调度的基本单位，那由哪个线程来响应进程级别的信号呢？**哪个线程最先从内核态切到用户态，就由这个线程来首先响应进程级别的信号，再响应其本身的线程级的信号，得响应两次**。
+
+**相关接口**
+
+```c
+    #include <signal.h>
+
+    int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+```
+
+线程级别的`sigprocmask`函数
+
+```c
+    #include <signal.h>
+
+    int sigwait(const sigset_t *set, int *sig);
+```
+
+线程级别的等待某个信号
+
+```c
+    #include <signal.h>
+
+    int pthread_kill(pthread_t thread, int sig);
+```
+
+给线程发送信号
+
+
 ### 2. 线程与fork
+
+假设一个进程中已经有了3个线程，其中一个线程调用了`fork()`，那么这个`fork()`出来的子进程里有多少个线程？POSIX原语中定义子进程中只有调用了`fork()`的那一个线程，DCE原语则是包含了父进程中原模原样的3个线程。
+
+## P219 并发 - OpenMP线程标准
+
+GCC 4.0以后的版本都能够识别OpenMP的语法标记
+
+```c
+int main()
+{
+#pragma omp parallel
+{
+    puts("Hello");
+    puts("World");
+}
+    exit(0);
+}
+```
+
+```c
+int main()
+{
+#pragma omp parallel sections
+{
+#pragma omp section
+    printf("[%d] Hello\n", omp_get_thread_num());
+
+#pragma omp section
+    printf("[%d] World\n", omp_get_thread_num());
+}
+    exit(0);
+}
+```
