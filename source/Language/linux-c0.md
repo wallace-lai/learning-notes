@@ -165,4 +165,231 @@ file locks                      (-x) unlimited
 
 ## P128 标准IO - 字符输入输出
 
+### 1. 输入字符
+```c
+    #include <stdio.h>
+
+    int fgetc(FILE *stream);
+    int getc(FILE *stream);
+
+    int getchar(void);
+```
+
+getc与fgetc等价，但它是个宏。而fgetc是函数。
+
+```c
+    #include <stdio.h>
+
+    int fputc(int c, FILE *stream);
+    int putc(int c, FILE *stream);
+    int putchar(int c);
+    int puts(const char *s);
+```
+
+### 2. 字符输入输出应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/stdio/mycopy.c)
+
+基于读写字符串的mycpy实现。
+
+```c
+    fpSrc = fopen(argv[1], "r");
+    if (fpSrc == NULL) {
+        perror("fopen()");
+        exit(1);
+    }
+
+    fpDst = fopen(argv[2], "w");
+    if (fpDst == NULL) {
+        fclose(fpSrc);
+        perror("fopen()");
+        exit(1);
+    }
+
+    while (1) {
+        ch = fgetc(fpSrc);
+        if (ch == EOF) {
+            break;
+        }
+        fputc(ch, fpDst);
+    }
+```
+
+解释：
+
+（1）当fgetc返回EOF时表示读取文件完毕，此时需要退出循环
+
+## P129 标准IO - fread和fwrite
+
+### 1. fgets
+
+```c
+    char *fgets(char *s, int size, FILE *stream);
+```
+
+```
+fgets()  reads in at most one less than size characters from stream and stores
+them into the buffer pointed to by s.  Reading stops after an EOF  or  a  new‐
+line.  If a newline is read, it is stored into the buffer.  A terminating null
+byte ('\0') is stored after the last character in the buffer.
+```
+
+### 2. fgets应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/stdio/mycopy_fgets.c)
+
+使用fgets重写mycpy程序。
+
+```c
+    char buffer[BUFSIZE];
+    while (fgets(buffer, BUFSIZ, fpSrc) != NULL) {
+        fputs(buffer, fpDst);
+    }
+```
+
+解释：
+
+（1）fgets返回NULL时表示文件读取结束
+
+### 3. fread和fwrite
+
+```c
+    #include <stdio.h>
+
+    size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+    size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+```
+
+### 4. fread和fwrite应用案例1
+
+```c
+    int n = 0;
+    while ((n = fread(buffer, 1, BUFSIZ, fpSrc)) > 0) {
+        fwrite(buffer, 1, n, fpDst);
+    }
+```
+
+解释：
+
+（1）fread和fwrite适合工整的结构体内容读取
+
+（2）为了避免可能的错误，建议将size设置成1，把nmemb设置成为缓冲区的大小
+
+（3）注意fread返回的是实际读取到的对象的个数
+
+## P130 标准IO - printf和scanf函数族
+
+### 1. printf函数族
+
+```c
+    #include <stdio.h>
+
+    int printf(const char *format, ...);
+    int fprintf(FILE *stream, const char *format, ...);
+    int dprintf(int fd, const char *format, ...);
+    int sprintf(char *str, const char *format, ...);
+    int snprintf(char *str, size_t size, const char *format, ...);
+```
+
+（1）printf是往标准输出中输出内容
+
+（2）fprintf可以指定往哪个文件中输出内容
+
+（3）dprintf是往某个fd文件描述符中输出内容
+
+（4）sprintf是往buffer中格式化输出内容
+
+（5）snprintf是往buffer中格式化输出内容，同时限定最大可写入的大小
+
+### 2. 字符串转整数
+
+```c
+    #include <stdlib.h>
+
+    int atoi(const char *nptr);
+    long atol(const char *nptr);
+    long long atoll(const char *nptr);
+```
+
+### 3. scanf函数族
+
+```c
+    #include <stdio.h>
+
+    int scanf(const char *format, ...);
+    int fscanf(FILE *stream, const char *format, ...);
+    int sscanf(const char *str, const char *format, ...);
+```
+
+## P131 ~ P132 标准IO - fseek和ftell
+
+### 1. 定位流
+
+```c
+    #include <stdio.h>
+
+    int fseek(FILE *stream, long offset, int whence);
+    long ftell(FILE *stream);
+    void rewind(FILE *stream);
+```
+
+对于fseek，其功能为在whence的基础上，便宜offset大小。其参数含义如下：
+
+（1）stream：要定位的流
+
+（2）offset：偏移量
+
+（3）whence：相对位置
+
+- SEEK_SET：文件首
+- SEEK_CUR：当前位置
+- SEEK_END：文件尾
+
+fseek和ftell的丑陋之处：
+
+（1）offset的类型为long
+
+long有多大？不知道；为什么用带类型的long而不是unsigned long？这正是fseek的丑陋之处。
+
+**使用下面的函数来替代丑陋的fseek和ftell**：
+
+```c
+    #include <stdio.h>
+
+    int fseeko(FILE *stream, off_t offset, int whence);
+
+    off_t ftello(FILE *stream);
+```
+
+解释：
+
+（1）`off_t`类型有多大？你不用管，反正它有足够的空间来表示偏移量
+
+（2）编译时加上`_FILE_OFFSET_BITS`可以让`off_t`变成64位大小
+
+ftell的功能为告知流当前的位置。rewind的功能为将流的位置调整到文件首。
+
+### 2. 刷新流的缓冲区
+
+```c
+    #include <stdio.h>
+
+    int fflush(FILE *stream);
+```
+
+### 3. 修改缓冲模式
+
+```c
+    #include <stdio.h>
+
+    void setbuf(FILE *stream, char *buf);
+
+    void setbuffer(FILE *stream, char *buf, size_t size);
+
+    void setlinebuf(FILE *stream);
+
+    int setvbuf(FILE *stream, char *buf, int mode, size_t size);
+```
+
+## P133 标准IO - getline
 
