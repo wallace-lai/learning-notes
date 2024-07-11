@@ -393,3 +393,53 @@ ftell的功能为告知流当前的位置。rewind的功能为将流的位置调
 
 ## P133 标准IO - getline
 
+```c
+    #include <stdio.h>
+
+    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+```
+
+### 1. getline应用案例
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/stdio/getline.c)
+
+统计文件每行的长度。
+
+```c
+    // !!! we must initialize line_buffer and line_length here
+    char *line_buffer = NULL;
+    size_t line_length = 0;
+    while (1) {
+        count++;
+        if (getline(&line_buffer, &line_length, f) < 0) {
+            break;
+        }
+        printf("Line %d, length  %ld, buffer length %ld\n", count, strlen(line_buffer), line_length);
+        free(line_buffer);
+    }
+```
+
+## P134 标准IO - 临时文件
+
+为什么要有专门的接口用于产生临时文件？主要是为了避免以下的问题出现：
+
+（1）避免在多用户多进程的情况下出现文件名冲突
+
+（2）没有及时销毁临时文件
+
+### 1. 接口
+
+```c
+    #include <stdio.h>
+
+    char *tmpnam(char *s);
+    FILE *tmpfile(void);
+```
+
+解释：
+
+（1）`tmpnam`的缺陷：产生文件名和打开文件没办法一步完成，多线程并发可能出现文件冲突；打开不关闭会导致临时文件无法销毁
+
+（2）`tmpfile`创建的是一个匿名的临时文件，可自动被销毁
+
+
+
