@@ -442,4 +442,209 @@ ftell的功能为告知流当前的位置。rewind的功能为将流的位置调
 （2）`tmpfile`创建的是一个匿名的临时文件，可自动被销毁
 
 
+## P135 系统IO - 文件描述符的原理
+
+### 1. 系统IO涉及的知识点
+
+（1）文件描述符的概念
+
+（2）文件IO操作：open、close、read、write、lseek
+
+（3）文件IO与标准IO的区别
+
+（4）IO效率问题
+
+（5）文件共享
+
+（6）原子操作
+
+（7）程序中的重定向：dup、dup2
+
+（8）同步：sync、fsync、fdatasync
+
+（9）fcntl
+
+（10）ioctl
+
+（11）/dev/fd目录
+
+### 2. 文件描述符原理
+
+如下所示，所谓的文件描述符其实是一个整型数。这个整型数其实是进程地址空间中fd数组中的下标。数组中包含了一个指针，该指针指向内核中的一个数据结构。
+
+![文件描述符](../media/images/Language/linux-c12.png)
+
+## P136 系统IO - open和close
+
+### 1. 接口
+
+```c
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <fcntl.h>
+
+    int open(const char *pathname, int flags);
+    int open(const char *pathname, int flags, mode_t mode);
+```
+
+注意，两个同名的open是通过变参函数的形式实现的。
+
+```c
+    #include <unistd.h>
+
+    int close(int fd);
+```
+
+## P137 系统IO - read、write和lseek
+
+### 1. 接口
+
+```c
+    #include <unistd.h>
+
+    ssize_t read(int fd, void *buf, size_t count);
+```
+
+```c
+    #include <unistd.h>
+
+    ssize_t write(int fd, const void *buf, size_t count);
+```
+
+```c
+    #include <sys/types.h>
+    #include <unistd.h>
+
+    off_t lseek(int fd, off_t offset, int whence);
+```
+
+### 2. 应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/sysio/mycpy_sys.c)
+
+使用系统IO实现mycpy程序。
+
+```c
+    int sfd = open(argv[1], O_RDONLY);
+    if (sfd < 0) {
+        perror("open()");
+        exit(1);
+    }
+
+    int dfd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (dfd < 0) {
+        close(sfd);
+        perror("open()");
+        exit(1);
+    }
+
+    int ret;
+    ssize_t len = 0;
+    char buffer[MAX_BUFSIZE];
+    while (1) {
+        len = read(sfd, buffer, MAX_BUFSIZE);
+        if (len < 0) {
+            perror("read()");
+            break;
+        }
+
+        if (len == 0) {
+            break;
+        }
+
+        int pos = 0;
+        while (len > 0) {
+            ret = write(dfd, buffer + pos, len);
+            if (ret < 0) {
+                perror("write()");
+                close(dfd);
+                close(sfd);
+                exit(1);
+            }
+
+            pos += ret;
+            len -= ret;
+        }
+    }
+```
+
+解释：
+
+（1）以只读的方式（O_RDONLY）打开源文件
+
+（2）以写的方式（O_WRONLY）打开目标文件，如果不存在则创建（O_CREAT），存在则截断（O_TRUNC）
+
+（3）注意write可能不能一次将len大小的数据写完，所以需要通过循环来将所有数据写完整
+
+## P138 系统IO - sysio和stdio之间的比较
+
+区别：
+
+（1）响应速度：sysio更快
+
+（2）吞吐量：stdio更大
+
+如何使一个程序变快？
+
+要提升响应速度用sysio，要提升吞吐量用stdio
+
+注意：**sysio和stdio不可混用**，这里的不可混用指的是不在同一个文件上同时使用sysio和stdio。
+
+下面是一个对应标准输出混用sysio和stdio的案例
+
+```c
+int main()
+{
+    putchar('a');
+    write(1, "b", 1);
+
+    putchar('a');
+    write(1, "b", 1);
+
+    putchar('a');
+    write(1, "b", 1);
+
+    exit(0);
+}
+```
+
+运行查看结果：
+
+```shell
+$ ./ab
+bbbaaa
+```
+
+输出结果是sysio的3个b最先输出，stdio的3个a最后输出。这和预想的顺序不一致，所以不要混用sysio和stdio。
+
+使用strace命令查看程序的系统调用顺序，如下所示：
+
+```shell
+// ...
+write(1, "b", 1b)                        = 1
+write(1, "b", 1b)                        = 1
+write(1, "b", 1b)                        = 1
+write(1, "aaa", 3aaa)                      = 3
+exit_group(0)                           = ?
++++ exited with 0 +++
+```
+
+可以看到3个putchar，最终是合并成了一条系统调用`write(1, "aaa", 3aaa)`。
+
+sysio和stdio之间的转换：
+
+（1）stdio转sysio
+
+```c
+    #include <stdio.h>
+    int fileno(FILE *stream);
+```
+
+（2）sysio转stdio
+
+```c
+    #include <stdio.h>
+    FILE *fdopen(int fd, const char *mode);
+```
+
 
