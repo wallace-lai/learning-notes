@@ -17,6 +17,8 @@
     design-pattern10.md
     design-pattern11.md
 
+    4-plus-1-view0.md
+
     c-best-practice-0.md
     c-best-practice-1.md
     c-best-practice-2.md
