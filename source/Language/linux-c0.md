@@ -647,4 +647,96 @@ sysio和stdio之间的转换：
     FILE *fdopen(int fd, const char *mode);
 ```
 
+## P139 系统IO - 文件共享
+
+要求：写一个程序删除文件的第10行
+
+【pending】
+
+## P140 系统IO - dup和dup2
+
+原子操作是指不可分割的操作，用于解决竞争和冲突问题
+
+```c
+    #include <unistd.h>
+
+    int dup(int oldfd);
+    int dup2(int oldfd, int newfd);
+
+    #define _GNU_SOURCE             /* See feature_test_macros(7) */
+    #include <fcntl.h>              /* Obtain O_* constant definitions */
+    #include <unistd.h>
+
+    int dup3(int oldfd, int newfd, int flags);
+```
+
+### 1. 使用案例
+
+我们需要将标准输出重定向到`/tmp/out`下。
+
+```c
+#define FNAME "/tmp/out"
+
+int main(int argc, char **argv)
+{
+    int fd = open(FNAME, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) {
+        perror("open()");
+        exit(1);
+    }
+
+    dup2(fd, 1);
+
+    puts("hello world!");
+
+    exit(0);
+}
+```
+
+问题：**程序结束以后，如何再将标准输出恢复关联至原先的标准输出设备？**
+
+## P141 系统IO - fcntl和ioctl
+
+```c
+    #include <unistd.h>
+
+    void sync(void);
+    int syncfs(int fd);
+```
+
+```c
+    #include <unistd.h>
+
+    int fsync(int fd);
+    int fdatasync(int fd);
+```
+
+解释：
+
+（1）`fsync`只刷新文件内容
+
+（2）`fdatasync`同时刷新文件内容和元数据
+
+### 1. fcntl
+
+功能非常杂的函数，所有关于文件描述符的操作基本都涉及到了
+
+```c
+    #include <unistd.h>
+    #include <fcntl.h>
+
+    int fcntl(int fd, int cmd, ... /* arg */ );
+```
+
+### 2. ioctl
+
+用于控制设备相关内容
+
+```c
+    #include <sys/ioctl.h>
+
+    int ioctl(int fd, unsigned long request, ...);
+```
+
+## P220 高级IO - 数据中继原理
 
