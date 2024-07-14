@@ -4474,3 +4474,87 @@ int main()
     exit(0);
 }
 ```
+
+## P220 ~ P222 高级IO - 有限状态机原理
+
+### 1. 高级IO所涉及的话题
+
+（1）非阻塞IO
+
+（2）IO多路转接
+
+（3）其他读写函数
+
+（4）存储映射IO
+
+（5）文件锁
+
+### 2. 有限状态机
+
+简单流程：指的是结构化的自然流程，比如把大象放冰箱里分三步即可
+
+复杂流程：指的是非结构化的自然流程，比如网络协议的握手过程
+
+下面是基于有限状态机的mycpy实现，[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/nonblock/relay.c)。
+
+
+## P223 ~ P235 高级IO - 中继引擎实现案例
+
+【pending】
+
+## P226 ~ P227 高级IO - select
+
+### 1. IO多路复用涉及的接口
+
+（1）select
+
+特点：
+
+- 可移植性好
+
+- 以事件为单位来组织文件描述符
+
+（2）poll
+
+特点：
+
+- 可移植性好
+
+- 以文件描述符为单位来组织事件
+
+（3）epoll
+
+- 属于linux内核的方言，可移植性不好
+
+### 2. select接口
+
+```c
+    /* According to POSIX.1-2001, POSIX.1-2008 */
+    #include <sys/select.h>
+
+    /* According to earlier standards */
+    #include <sys/time.h>
+    #include <sys/types.h>
+    #include <unistd.h>
+
+    int select(int nfds, fd_set *readfds, fd_set *writefds,
+                fd_set *exceptfds, struct timeval *timeout);
+
+    void FD_CLR(int fd, fd_set *set);
+    int  FD_ISSET(int fd, fd_set *set);
+    void FD_SET(int fd, fd_set *set);
+    void FD_ZERO(fd_set *set);
+```
+
+解释：
+
+（1）FD_CLR：将fd从集合set中清除出去
+
+（2）FD_ISSET：判断fd是否在集合set中
+
+（3）FD_SET：将fd加入到集合set中
+
+（4）FD_ZERO：将集合set清空
+
+（5）如果select不通过timeout设定超时时间，那么就是死等
+

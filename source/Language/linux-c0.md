@@ -16,8 +16,6 @@
 
 （1）P123 ~ P141
 
-（2）P220 ~ P235
-
 ## P123 ~ P124 标准IO - 介绍
 
 IO是一切实现的基础，IO分为两种：
@@ -737,25 +735,3 @@ int main(int argc, char **argv)
 
     int ioctl(int fd, unsigned long request, ...);
 ```
-
-## P220 ~ P222 高级IO - 有限状态机原理
-
-### 1. 高级IO所涉及的话题
-
-（1）非阻塞IO
-
-（2）IO多路转接
-
-（3）其他读写函数
-
-（4）存储映射IO
-
-（5）文件锁
-
-### 2. 有限状态机
-
-简单流程：指的是结构化的自然流程，比如把大象放冰箱里分三步即可
-
-复杂流程：指的是非结构化的自然流程，比如网络协议的握手过程
-
-下面是基于有限状态机的mycpy实现，[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/nonblock/relay.c)。
