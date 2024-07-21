@@ -4500,9 +4500,13 @@ int main()
 
 ## P223 ~ P235 高级IO - 中继引擎实现案例
 
-【pending】
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/io/adv/nonblock/relayer)
+
+
 
 ## P226 ~ P227 高级IO - select
+
+所谓的IO多路转接实质是监控文件描述符发生的事件。
 
 ### 1. IO多路复用涉及的接口
 
@@ -4558,3 +4562,254 @@ int main()
 
 （5）如果select不通过timeout设定超时时间，那么就是死等
 
+（6）nfds表示所监控的文件描述符最大值 + 1
+
+（7）readfds：可读文件描述符集合
+
+（8）writefds：可写文件描述符集合
+
+（9）exceptfds：异常文件描述符集合
+
+（10）timeout：超时设置，不设置则阻塞式死等
+
+（11）
+On  success,  select() and pselect() return the number of file descriptors contained
+in the three returned descriptor sets (that is, the total number of  bits  that  are
+set in readfds, writefds, exceptfds) which may be zero if the timeout expires before
+anything interesting happens.  On error, -1 is returned, and errno is set  to  indi‐
+cate  the  error; the file descriptor sets are unmodified, and timeout becomes unde‐
+fined.
+
+### 3. select应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/select/relay.c)
+
+
+将relay程序改写成select形式，原先relay程序属于死等，如下所示：
+
+```c
+    m12.state = FSM_STATE_R;
+    m12.sfd = sfd;
+    m12.dfd = dfd;
+
+    m21.state = FSM_STATE_R;
+    m21.sfd = dfd;
+    m21.dfd = sfd;
+
+    while (m12.state != FSM_STATE_T || m21.state != FSM_STATE_T) {
+        fsm_driver(&m12);
+        fsm_driver(&m21);
+    }
+```
+
+将原先死等的程序用select改造，如下所示：
+
+```c
+    fsm_t m12;
+    fsm_t m21;
+
+    m12.state = FSM_STATE_R;
+    m12.sfd = sfd;
+    m12.dfd = dfd;
+
+    m21.state = FSM_STATE_R;
+    m21.sfd = dfd;
+    m21.dfd = sfd;
+
+    fd_set rset;
+    fd_set wset;
+
+    while (m12.state != FSM_STATE_T || m21.state != FSM_STATE_T) {
+        // FSM_STATE_EX态需要自动往下推
+        if (m12.state == FSM_STATE_EX || m21.state == FSM_STATE_EX) {
+            fsm_driver(&m12);
+            fsm_driver(&m21);
+            continue;
+        }
+
+        // 布置监视任务
+        FD_ZERO(&rset);
+        FD_ZERO(&wset);
+
+        if (m12.state == FSM_STATE_R) {
+            FD_SET(m12.sfd, &rset);
+        } else if (m12.state == FSM_STATE_W) {
+            FD_SET(m12.dfd, &wset);
+        }
+
+        if (m21.state == FSM_STATE_R) {
+            FD_SET(m21.sfd, &rset);
+        } else if (m21.state == FSM_STATE_W) {
+            FD_SET(m21.dfd, &wset);
+        }
+
+        // 监视
+        ret = select(max(sfd, dfd) + 1, &rset, &wset, NULL, NULL);
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("select()");
+            exit(1);
+        }
+
+        // 查看监视结果
+        if (FD_ISSET(m12.sfd, &rset) || FD_ISSET(m12.dfd, &wset)) {
+            fsm_driver(&m12);
+        }
+        if (FD_ISSET(m21.sfd, &rset) || FD_ISSET(m21.dfd, &wset)) {
+            fsm_driver(&m21);
+        }
+    }
+```
+
+解释：
+
+（1）当两个状态机有一个不停机时，就需要重复下面的循环；
+
+（2）如果是FSM_STATE_EX态，则需要自动往下推不需要使用监听；
+
+（3）布置监控状态：
+
+- 先将读和写集合清空；
+- 如果状态机1处于读状态，则将其sfd加入到读集中；若处于写状态，则将其dfd加入到写集中；
+- 对状态机2也实施同样的操作
+
+（4）监视：调用select对读集和写集中的文件描述符进行监控
+
+（5）查看监控结果：只要状态机1可读或者可写就推动状态机1，对状态机2实施同样的操作
+
+### 4. select的缺点
+
+（1）select中输入集合和监视结果集合均存于函数入参中，导致每次调用前都需要重新清空集合
+
+（2）进程所能打开的文件描述符的个数是可以修改的，于是`nfds`有超出有符号整型的范围
+
+（3）监视事件太单一了，除了可读和可写之外，其他全是异常事件
+
+## P228 高级IO - poll
+
+poll是以文件描述符为单位来监视事件，而select是以事件为单位来监视文件描述符。
+
+### 1. 接口
+
+```c
+    #include <poll.h>
+
+    struct pollfd {
+        int   fd;         /* file descriptor */
+        short events;     /* requested events */
+        short revents;    /* returned events */
+    };
+
+    int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+```
+
+### 2. poll应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/poll/relay.c)
+
+```c
+    struct pollfd fds[2];
+
+    while (m12.state != FSM_STATE_T || m21.state != FSM_STATE_T) {
+        // FSM_STATE_EX态需要自动往下推
+        if (m12.state == FSM_STATE_EX || m21.state == FSM_STATE_EX) {
+            fsm_driver(&m12);
+            fsm_driver(&m21);
+            continue;
+        }
+
+        // 布置监视任务
+        memset(fds, 0, sizeof(struct pollfd) * 2);  
+        fds[0].fd = sfd;
+        fds[1].fd = dfd;
+
+        if (m12.state == FSM_STATE_R) {
+            // 读1写2，1可读
+            fds[0].events |= POLLIN;
+        }
+        if (m21.state == FSM_STATE_W) {
+            // 读2写1，1可写
+            fds[0].events |= POLLOUT;
+        }
+        if (m21.state == FSM_STATE_R) {
+            // 读2写1，2可读
+            fds[1].events |= POLLIN;
+        }
+        if (m12.state == FSM_STATE_W) {
+            // 读1写2，2可写
+            fds[1].events |= POLLOUT;
+        }
+
+
+        // 监视
+        ret = poll(fds, 2, -1);
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            perror("poll()");
+            exit(1);
+        }
+
+        // 查看监视结果
+        if (fds[0].revents & POLLIN || fds[1].revents & POLLOUT) {
+            // 若可读1或者写2，推动状态机1
+            fsm_driver(&m12);
+        }
+        if (fds[1].revents & POLLIN || fds[0].revents & POLLOUT) {
+            // 若可读2或者写1，推动状态机2
+            fsm_driver(&m21);
+        }
+    }
+```
+
+解释：
+
+（1）状态机m12是读1写2，因此其状态为读表明sfd可读，若其状态为写表明dfd可写；
+
+```c
+    if (m12.state == FSM_STATE_R) {
+        // 读1写2，1可读
+        fds[0].events |= POLLIN;
+    }
+
+    if (m12.state == FSM_STATE_W) {
+        // 读1写2，2可写
+        fds[1].events |= POLLOUT;
+    }
+```
+
+（2）状态机m21是读2写1，因此其状态为读表明dfd可读，若其状态为写表明sfd可写；
+
+```c
+    if (m21.state == FSM_STATE_W) {
+        // 读2写1，1可写
+        fds[0].events |= POLLOUT;
+    }
+    if (m21.state == FSM_STATE_R) {
+        // 读2写1，2可读
+        fds[1].events |= POLLIN;
+    }
+```
+
+（3）如果监视到sfd可读或者dfd可写，则推动状态机m12；
+
+```c
+    if (fds[0].revents & POLLIN || fds[1].revents & POLLOUT) {
+        // 若可读1或者写2，推动状态机1
+        fsm_driver(&m12);
+    }
+```
+
+（4）若监视到dfd可读或者sfd可写，则推动状态机m21；
+
+```c
+    if (fds[1].revents & POLLIN || fds[0].revents & POLLOUT) {
+        // 若可读2或者写1，推动状态机2
+        fsm_driver(&m21);
+    }
+```
+
+## P229 高级IO - epoll
