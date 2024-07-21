@@ -4813,3 +4813,311 @@ poll是以文件描述符为单位来监视事件，而select是以事件为单�
 ```
 
 ## P229 高级IO - epoll
+
+### 1. 接口
+
+（1）创建一个epoll实例
+
+```c
+    #include <sys/epoll.h>
+
+    int epoll_create(int size);
+```
+
+（2）操作epoll实例
+
+```c
+    #include <sys/epoll.h>
+
+    int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+```
+
+- `epfd`是epoll_create返回的epoll实例描述符
+- `op`是对`fd`支持的操作
+
+  - `EPOLL_CTL_ADD`：增
+  - `EPOLL_CTL_MOD`：改
+  - `EPOLL_CTL_DEL`：删
+
+- `event`定义如下
+
+```c
+    typedef union epoll_data {
+        void        *ptr;
+        int          fd;
+        uint32_t     u32;
+        uint64_t     u64;
+    } epoll_data_t;
+
+    struct epoll_event {
+        uint32_t     events;      /* Epoll events */
+        epoll_data_t data;        /* User data variable */
+    };
+```
+
+（3）取发生了的事件
+
+```c
+    #include <sys/epoll.h>
+
+    int epoll_wait(int epfd, struct epoll_event *events,
+                    int maxevents, int timeout);
+```
+
+- `maxevents`是一次取出的最大事件个数
+
+### 2. epoll应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/epoll/relay.c)
+
+基于epoll的relay程序的实现
+
+```c
+    // 往epoll实例中添加文件描述符
+    struct epoll_event event;
+    memset(&event, 0, sizeof(event));
+
+    event.data.fd = sfd;
+    ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sfd, &event);
+    if (ret < 0) {
+        perror("epoll_ctl()");
+        exit(1);
+    }
+
+    event.data.fd = dfd;
+    ret = epoll_ctl(epfd, EPOLL_CTL_ADD, dfd, &event);
+    if (ret < 0) {
+        perror("epoll_ctl()");
+        exit(1);
+    }
+```
+
+解释：
+
+（1）创建一个`struct epoll_event`对象
+
+（2）往epoll实例中添加sfd和dfd这两个文件描述符
+
+```c
+    // 布置监视任务
+    event.data.fd = sfd;
+    event.events = 0;
+    if (m12.state == FSM_STATE_R) {
+        event.events |= EPOLLIN;
+    }
+    if (m21.state == FSM_STATE_W) {
+        event.events |= EPOLLOUT;
+    }
+    ret = epoll_ctl(epfd, EPOLL_CTL_MOD, sfd, &event);
+    if (ret < 0) {
+        perror("epoll_ctl()");
+        exit(1);
+    }
+
+    event.data.fd = dfd;
+    event.events = 0;
+    if (m12.state == FSM_STATE_W) {
+        event.events |= EPOLLOUT;
+    }
+    if (m21.state == FSM_STATE_R) {
+        event.events |= EPOLLIN;
+    }
+    ret = epoll_ctl(epfd, EPOLL_CTL_MOD, dfd, &event);
+    if (ret < 0) {
+        perror("epoll_ctl()");
+        exit(1);
+    }
+```
+
+解释：
+
+（1）对于sfd来说，如果读1，则需要监听可读事件，如果2写，则需要监听可写事件；
+
+（2）对于dfd来说，如果读2，则需要监听可读事件，如果1写，则需要监听可写事件；
+
+```c
+    // 监视
+    while (epoll_wait(epfd, &event, 1, -1) < 0) {
+        if (errno == EINTR) {
+            continue;
+        }
+        perror("epoll_wait()");
+        exit(1);
+    }
+
+    // 查看监视结果
+    if ((event.data.fd == sfd && event.events & EPOLLIN) ||
+        (event.data.fd == dfd && event.events & EPOLLOUT)) {
+        // 读1或者2写时，需要推动状态机m12
+        fsm_driver(&m12);
+    }
+    if ((event.data.fd == dfd && event.events & EPOLLIN) ||
+        (event.data.fd == sfd && event.events & EPOLLOUT)) {
+        // 读2或者写1时，需要推动状态机m21
+        fsm_driver(&m21);
+    }
+```
+
+解释：
+
+（1）这里至少需要等到一个事件后才能推动状态机，所以用的while循环
+
+## P230 ~ P231 高级IO - 内存映射
+
+### 1. readv和writev
+
+readv和writev在多个内存碎片中进行读写。
+
+```c
+    #include <sys/uio.h>
+
+    struct iovec {
+        void  *iov_base;    /* Starting address */
+        size_t iov_len;     /* Number of bytes to transfer */
+    };
+
+    ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+    ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
+```
+
+（1）一个`iovec`指明了一块内存；
+
+（2）`readv`从`iovcnt`个内存块中读；
+
+（3）`writev`往`iovcnt`个内存块中写；
+
+### 2. 存储映射IO - mmap
+
+```c
+    #include <sys/mman.h>
+
+    void *mmap(void *addr, size_t length, int prot, int flags,
+                int fd, off_t offset);
+    int munmap(void *addr, size_t length);
+```
+
+
+### 3. mmap应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/mmap/mmap.c)
+
+使用mmap实现计算文件中字符a的个数。
+
+```c
+    char *str = mmap(NULL, statres.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    if (str == MAP_FAILED) {
+        perror("mmap()");
+        exit(1);
+    }
+    close(fd);
+
+    unsigned count = 0;
+    for (int i = 0; i < statres.st_size; i++) {
+        if (str[i] == 'a') {
+            count++;
+        }
+    }
+    printf("count = %d\n", count);
+
+    munmap(str, statres.st_size);
+```
+
+解释：
+
+（1）`statres`是通过`fstat`获取的文件信息，里面包含了文件的大小
+
+（2）为什么`munmap`要将映射内存块的长度也传入？
+
+### 4. mmap应用案例2
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/mmap/shm.c)
+
+使用mmap实现父子进程之间通信
+
+```c
+    char *ptr = mmap(NULL, MEMSIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (ptr == MAP_FAILED) { /* ... */ }
+
+    pid_t pid = fork();
+    if (pid < 0) { /* ... */ }
+
+    if (pid == 0) {
+        // child write
+        strncpy(ptr, "hello message form child process.", MEMSIZE);
+        munmap(ptr, MEMSIZE);
+        exit(0);
+    } else {
+        // parent read
+        wait(NULL);
+        puts(ptr);
+        munmap(ptr, MEMSIZE);
+    }
+```
+
+解释：
+
+（1）使用匿名映射（MAP_ANONYMOUS）的方式，映射得到一块MEMSIZE大小的内存区域，权限设置为可读可写
+
+（2）映射完毕后再fork子进程，子进程中往内存中写入，父进程中从内存中读取以实现父子进程间通信。
+
+（3）注意，父子进程都需要使用`munmap`解除映射
+
+## P232 高级IO - 文件锁
+
+### 1. 可以实现文件锁的函数
+
+（1）fcntl
+
+（2）lockf
+
+（3）flock
+
+
+```c
+    #include <unistd.h>
+
+    int lockf(int fd, int cmd, off_t len);
+```
+
+注意，由于文件锁是加在文件inode上的，所以如果同一文件被打开两次，其中一次的close操作会导致在另一次打开中文件意外解锁。
+
+### 2. 文件锁应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/io/adv/lockf/lockf.c)
+
+使用20个子进程并发的形式读取/tmp/out文件中的数字，加1后再写入文件。使用文件锁来实现子进程间的互斥
+
+```c
+static void *func_add(void)
+{
+    FILE *f = fopen(FNAME, "r+");
+    if (f == NULL) {
+        perror("fopen()");
+        exit(1);
+    }
+
+    int fd = fileno(f);
+    char linebuf[LINE_SIZE];
+
+    lockf(fd, F_LOCK, 0);    // 加锁
+
+    fgets(linebuf, LINE_SIZE, f);
+    int num = atoi(linebuf) + 1;
+    fseek(f, 0, SEEK_SET);
+    fprintf(f, "%d\n", num);
+    fflush(f);
+
+    lockf(fd, F_ULOCK, 0);   // 解锁
+
+    fclose(f);  // 为了防止意外解锁，必须在解锁后close
+}
+```
+
+解释：
+
+（1）从文件中读取数据，加1后再写入的整个过程需要使用lockf加锁
+
+（2）注意解锁要在fclose之前，以避免多个子进程间意外解锁
+
+## P233 ~ P235 管道实例
+
