@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-07-08 <br>
+更新：2024-07-22 <br>
 
 并发操作对应APUE上的章节为：
 
@@ -5120,4 +5120,43 @@ static void *func_add(void)
 （2）注意解锁要在fclose之前，以避免多个子进程间意外解锁
 
 ## P233 ~ P235 管道实例
+
+### 1. 管道实例1 - 基于循环队列的管道实现
+
+[完整源码](https://github.com/wallace-lai/learn-apue/tree/main/src/con/parallel/thread/posix/mypipe)
+
+基于循环队列实现一个多线程之间通信使用的管道。
+
+```c
+#define PIPESIZE                1024
+#define MYPIPE_TYPE_READER      0x00000001UL
+#define MYPIPE_TYPE_WRITER      0x00000002UL
+
+typedef void mypipe_t;
+
+mypipe_t *mypipe_init(void);
+
+int mypipe_register(mypipe_t *pipe, int type);
+
+int mypipe_unregister(mypipe_t *pipe, int type);
+
+int mypipe_read(mypipe_t *pipe, void *buf, size_t size);
+
+int mypipe_write(mypipe_t *pipe, const void *buf, size_t size);
+
+int mypipe_destroy(mypipe_t *pipe);
+```
+
+解释：
+
+（1）管道需要提供上述接口，其中register和unregister用于注册对该管道的读和写进程
+
+
+【pending】
+
+### 2. 管道实例2 - 封装成文件操作格式
+
+在管道实例1的基础上，将实例1封装成文件操作形式的管道库
+
+【pending】
 
