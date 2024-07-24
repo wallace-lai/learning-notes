@@ -20,7 +20,13 @@
 
 （1）获取文件属性
 
+- stat
+- fstat
+- lstat
+
 （2）文件访问权限
+
+- `st_mode`是一个16位的位图，用于表示文件类型、访问权限、特殊权限位
 
 （3）umask
 
@@ -163,4 +169,203 @@ Device: fd00h/64768d    Inode: 655391      Links: 1
 ```
 
 可以看到这个5G大小的文件实际只占用了4K大小的磁盘空间
+
+### 4. 文件类型
+
+（1）测试文件类型
+
+```
+    S_ISREG(m)  is it a regular file?
+    S_ISDIR(m)  directory?
+    S_ISCHR(m)  character device?
+    S_ISBLK(m)  block device?
+    S_ISFIFO(m) FIFO (named pipe)?
+    S_ISLNK(m)  symbolic link?  (Not in POSIX.1-1996.)
+    S_ISSOCK(m) socket?  (Not in POSIX.1-1996.)
+```
+
+（2）文件类型应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/ftype.c)
+
+```c
+    if (stat(fname, &res) < 0) {
+        perror("stat");
+        exit(1);
+    }
+
+    int ret = 0;
+    if (S_ISREG(res.st_mode)) {
+        ret = '-';
+    } else if (S_ISDIR(res.st_mode)) {
+        ret = 'd';
+    } else if (S_ISCHR(res.st_mode)) {
+        ret = 'c';
+    } else if (S_ISBLK(res.st_mode)) {
+        ret = 'b';
+    } else if (S_ISFIFO(res.st_mode)) {
+        ret = 'p';
+    } else if (S_ISSOCK(res.st_mode)) {
+        ret = 's';
+    } else if (S_ISLNK(res.st_mode)) {
+        ret = 'l';
+    } else {
+        ret = '?';
+    }
+
+    return ret;
+```
+
+（3）`st_mode`位图定义
+
+```
+The following mask values are defined for the file mode component of the st_mode field:
+
+    S_ISUID     04000   set-user-ID bit (see execve(2))
+    S_ISGID     02000   set-group-ID bit (see below)
+    S_ISVTX     01000   sticky bit (see below)
+
+    S_IRWXU     00700   owner has read, write, and execute permission
+    S_IRUSR     00400   owner has read permission
+    S_IWUSR     00200   owner has write permission
+    S_IXUSR     00100   owner has execute permission
+
+    S_IRWXG     00070   group has read, write, and execute permission
+    S_IRGRP     00040   group has read permission
+    S_IWGRP     00020   group has write permission
+    S_IXGRP     00010   group has execute permission
+
+    S_IRWXO     00007   others (not in group) have read,  write,  and
+                        execute permission
+    S_IROTH     00004   others have read permission
+    S_IWOTH     00002   others have write permission
+    S_IXOTH     00001   others have execute permission
+```
+
+## P145 ~ P146 文件系统 - 文件权限的更改
+
+### 1. umask
+
+创建文件时如果没有指定访问权限，则其默认值为`0600 & ~umask`。umask的作用是防止产生权限过大的文件
+
+```c
+    #include <sys/types.h>
+    #include <sys/stat.h>
+
+    mode_t umask(mode_t mask);
+```
+
+### 2. 更改文件权限
+
+```c
+    #include <sys/stat.h>
+
+    int chmod(const char *pathname, mode_t mode);
+    int fchmod(int fd, mode_t mode);
+```
+
+### 3. 粘住位
+
+t位（粘住位）的原始设计是针对二进制可执行文件，设置t位后可保留其使用痕迹，下次再次装载运行该文件时可以更快速。
+
+现在最常用的是给目录设置t位，比如`/tmp`目录就设置了t位
+
+```shell
+$ ls -l /
+dr-xr-xr-x  13 root root          0 Jul 23 22:55 sys
+drwxrwxrwt  15 root root      12288 Jul 23 23:26 tmp
+drwxr-xr-x  14 root root       4096 Aug 31  2022 usr
+drwxr-xr-x  15 root root       4096 Jun 14 16:11 var
+```
+
+### 4. FAT文件系统
+
+略
+
+## P147 文件系统 - UFS文件系统
+
+略
+
+## P148 链接文件和目录操作
+
+### 1. 命令
+（1）创建硬链接：`ln /tmp/bigfile /tmp/bigfile_link`
+
+（2）创建符号链接：`ls -s /tmp/bigfile /tmp/bigfile_s`
+
+注意：硬链接与目录项是同义词，但建立硬链接有限制，即不能跨分区建立也不能给目录建立。符号链接可以跨越分区，也可以给目录建立符号链接。
+
+### 2. 接口
+```c
+    #include <unistd.h>
+
+    int link(const char *oldpath, const char *newpath);
+```
+
+（1）使用link创建硬链接
+
+```c
+    #include <unistd.h>
+
+    int unlink(const char *pathname);
+```
+
+（2）使用unlink删除文件，不能删除非空目录
+
+```c
+    #include <stdio.h>
+
+    int remove(const char *pathname);
+```
+
+（3）使用remove删除文件或者目录，不能删除非空目录
+
+```c
+    #include <stdio.h>
+
+    int rename(const char *old, const char *new);
+    int renameat(int oldfd, const char *old, int newfd,
+        const char *new);
+```
+
+### 3. 更改时间
+
+```c
+    #include <sys/types.h>
+    #include <utime.h>
+
+    int utime(const char *filename, const struct utimbuf *times);
+```
+
+utime用于改变文件的时间，可以更改atime和mtime
+
+### 4. 创建和删除目录
+
+```c
+    #include <sys/stat.h>
+    #include <sys/types.h>
+
+    int mkdir(const char *pathname, mode_t mode);
+
+    #include <unistd.h>
+    int rmdir(const char *pathname);
+```
+
+### 5. 更改当前工作目录
+
+```c
+    #include <unistd.h>
+
+    int chdir(const char *path);
+    int fchdir(int fd);
+```
+
+```c
+    #include <unistd.h>
+
+    char *getcwd(char *buf, size_t size);
+```
+
+获取当前的工作路径
+
 
