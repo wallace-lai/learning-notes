@@ -286,7 +286,7 @@ drwxr-xr-x  15 root root       4096 Jun 14 16:11 var
 
 略
 
-## P148 链接文件和目录操作
+## P148 文件系统 - 链接文件
 
 ### 1. 命令
 （1）创建硬链接：`ln /tmp/bigfile /tmp/bigfile_link`
@@ -368,4 +368,138 @@ utime用于改变文件的时间，可以更改atime和mtime
 
 获取当前的工作路径
 
+## P149 ~ P152 文件系统 - 目录解析
+
+目录遍历有2中方式：
+
+（1）使用glob
+
+- glob()
+- globfree()
+
+（2）使用一些列的接口
+
+- opendir()
+- closedir()
+- readdir()
+- rewinddir()
+- seekdir()
+- telldir()
+
+### 1. glob
+
+```c
+    #include <glob.h>
+
+    typedef struct {
+        size_t   gl_pathc;    /* Count of paths matched so far  */
+        char   **gl_pathv;    /* List of matched pathnames.  */
+        size_t   gl_offs;     /* Slots to reserve in gl_pathv.  */
+    } glob_t;
+
+    int glob(const char *pattern, int flags,
+            int (*errfunc) (const char *epath, int eerrno),
+            glob_t *pglob);
+    void globfree(glob_t *pglob);
+```
+
+### 2. glob应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/glob.c)
+
+使用glob去匹配模式
+
+```c
+    #define PAT "/etc/*"
+
+    glob_t res = { 0 };
+
+    err = glob(PAT, 0, NULL, &res);
+    if (err) {
+        printf("ERROR CODE : %d\n", err);
+        exit(1);
+    }
+
+    for (int i = 0; i < res.gl_pathc; i++) {
+        puts(res.gl_pathv[i]);
+    }
+```
+
+解释：
+
+（1）模式为`"/etc/*"`表示要找到`/etc`目录下的所有文件
+
+### 3. 解析目录系列接口
+
+（1）打开目录，和打开文件极其类似
+
+```c
+    #include <sys/types.h>
+    #include <dirent.h>
+
+    DIR *opendir(const char *name);
+    DIR *fdopendir(int fd);
+```
+
+（2）关闭目录
+
+```c
+    #include <sys/types.h>
+    #include <dirent.h>
+
+    int closedir(DIR *dirp);
+```
+
+（3）读取目录内容
+
+```c
+    #include <dirent.h>
+
+    struct dirent {
+        ino_t          d_ino;       /* Inode number */
+        off_t          d_off;       /* Not an offset; see below */
+        unsigned short d_reclen;    /* Length of this record */
+        unsigned char  d_type;      /* Type of file; not supported
+                                        by all filesystem types */
+        char           d_name[256]; /* Null-terminated filename */
+    };
+
+    struct dirent *readdir(DIR *dirp);
+```
+
+（4）设置readdir()的读取位置，与操作文件位置接口极其类似
+
+```c
+    #include <dirent.h>
+
+    void seekdir(DIR *dirp, long loc);
+    void rewinddir(DIR *dirp);
+    long telldir(DIR *dirp);
+```
+
+### 4. readdir应用案例1
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/readdir.c)
+
+使用readdir解析目录下文件（不递归）
+
+```c
+    #define PAT "/etc"
+
+    dp = opendir(PAT);
+    if (dp == NULL) {
+        perror("opendir()");
+        exit(1);
+    }
+
+    while ((curr = readdir(dp)) != NULL) {
+        puts(curr->d_name);
+    }
+```
+
+解释：
+
+（1）先使用`opendir`打开目录，得到`DIR`指针
+
+（2）使用`readdir`读取`/etc`目录下的所有文件名
 
