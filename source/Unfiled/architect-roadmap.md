@@ -36,6 +36,7 @@ mindmap
         人际沟通
         ::icon(fa fa-heart)
             英语
+            领导力
             沟通技巧
             项目管理
 ```
