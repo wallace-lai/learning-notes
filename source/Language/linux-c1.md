@@ -503,3 +503,57 @@ utime用于改变文件的时间，可以更改atime和mtime
 
 （2）使用`readdir`读取`/etc`目录下的所有文件名
 
+### 5. readdir应用案例2
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/mydu.c)
+
+使用递归形式遍历目录，实现mydu程序。
+
+【pending，有BUG】
+
+```c
+    ret = lstat(path, &statres);
+    if (ret < 0) {
+        perror("lstat()");
+        return 0;
+    }
+
+    if (!S_ISDIR(statres.st_mode)) {
+        return (statres.st_blocks);
+    }
+
+    strncpy(nextpath, path, PATHSIZE);
+    strncat(nextpath, "/*", strlen(nextpath) + strlen("/*") + 1);
+    ret = glob(nextpath, 0, NULL, &globres);
+    if (ret != 0) {
+        perror("glob()");
+        return 0;
+    }
+
+    strncpy(nextpath, path, PATHSIZE);
+    strncat(nextpath, "/.*", strlen(nextpath) + strlen("/.*") + 1);
+    ret = glob(nextpath, GLOB_APPEND, NULL, &globres);
+
+    uint64_t sum = statres.st_blocks;
+    for (int i = 0; i < globres.gl_pathc; i++) {
+        if (is_current_or_parent_dir(globres.gl_pathv[i])) {
+            continue;
+        }
+        sum += mydu(globres.gl_pathv[i]);
+    }
+
+    globfree(&globres);
+```
+
+解释：
+
+（1）先判断是否为目录，不是目录则返回文件大小`st_blocks`即可，实际是文件所占的块个数，除以2才是以K为单位的大小值
+
+（2）如果是目录，则使用glob解析到目录下的所有子文件和子目录，再次使用glob解析到所有的隐藏文件
+
+（3）递归调用mydu
+
+（4）程序有BUG，pending
+
+## P153 文件系统 - 系统文件和信息
+
