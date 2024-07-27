@@ -4,6 +4,8 @@
 .. toctree::
     :maxdepth: 1
 
+    npm.md
+
     pcap-file-analysis.md
 
     network-basic.md
