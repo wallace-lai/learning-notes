@@ -557,3 +557,150 @@ utime用于改变文件的时间，可以更改atime和mtime
 
 ## P153 文件系统 - 系统文件和信息
 
+### 1. 主要内容
+
+（1）/etc/passwd
+
+（2）/etc/group
+
+（3）/etc/shadow
+
+（4）时间戳
+
+### 2. passwd文件
+
+```c
+    #include <sys/types.h>
+    #include <pwd.h>
+
+    struct passwd {
+        char   *pw_name;       /* username */
+        char   *pw_passwd;     /* user password */
+        uid_t   pw_uid;        /* user ID */
+        gid_t   pw_gid;        /* group ID */
+        char   *pw_gecos;      /* user information */
+        char   *pw_dir;        /* home directory */
+        char   *pw_shell;      /* shell program */
+    };
+
+    struct passwd *getpwnam(const char *name);
+
+    struct passwd *getpwuid(uid_t uid);
+
+    int getpwnam_r(const char *name, struct passwd *pwd,
+                    char *buf, size_t buflen, struct passwd **result);
+
+    int getpwuid_r(uid_t uid, struct passwd *pwd,
+                    char *buf, size_t buflen, struct passwd **result);
+```
+
+使用getpwuid得到用户名：
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/uname.c)
+
+```c
+    struct passwd *pwdline = NULL;
+    pwdline = getpwuid(atoi(argv[1]));
+    puts(pwdline->pw_name);
+```
+
+### 3. group文件
+
+```c
+    #include <sys/types.h>
+    #include <grp.h>
+
+    struct group {
+        char   *gr_name;        /* group name */
+        char   *gr_passwd;      /* group password */
+        gid_t   gr_gid;         /* group ID */
+        char  **gr_mem;         /* NULL-terminated array of pointers
+                                    to names of group members */
+    };
+
+    struct group *getgrnam(const char *name);
+
+    struct group *getgrgid(gid_t gid);
+
+    int getgrnam_r(const char *name, struct group *grp,
+                char *buf, size_t buflen, struct group **result);
+
+    int getgrgid_r(gid_t gid, struct group *grp,
+                char *buf, size_t buflen, struct group **result);
+```
+
+## P155 文件系统 - shadow文件
+
+```c
+    struct spwd {
+        char *sp_namp;     /* Login name */
+        char *sp_pwdp;     /* Encrypted password */
+        long  sp_lstchg;   /* Date of last change
+                                (measured in days since
+                                1970-01-01 00:00:00 +0000 (UTC)) */
+        long  sp_min;      /* Min # of days between changes */
+        long  sp_max;      /* Max # of days between changes */
+        long  sp_warn;     /* # of days before password expires
+                                to warn user to change it */
+        long  sp_inact;    /* # of days after password expires
+                                until account is disabled */
+        long  sp_expire;   /* Date when account expires
+                                (measured in days since
+                                1970-01-01 00:00:00 +0000 (UTC)) */
+        unsigned long sp_flag;  /* Reserved */
+    };
+
+    /* General shadow password file API */
+    #include <shadow.h>
+
+    struct spwd *getspnam(const char *name);
+```
+
+```c
+crypt()
+```
+
+```c
+    #include <unistd.h>
+
+    char *getpass(const char *prompt);
+```
+
+### 1. 应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/chkpass.c)
+
+```c
+int main(int argc, char *argv[])
+{
+    char *input = NULL;
+    struct spwd *shadowline = NULL;
+    char *crypted_pass = NULL;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage ...\n");
+        exit(1);
+    }
+
+    input = getpass("Password :");
+    shadowline = getspnam(argv[1]);
+    crypted_pass = crypt(input, shadowline->sp_pwdp);
+    if (strcmp(shadowline->sp_pwdp, crypted_pass) == 0) {
+        puts("OK!");
+    } else {
+        puts("FAILED!");
+    }
+
+    exit(0);
+}
+```
+
+程序链接不通过，原因是crypt函数的提供方式发生了变化
+
+```shell
+/usr/bin/ld: /tmp/ccHshNKB.o: in function `main':
+chkpass.c:(.text+0x95): undefined reference to `crypt'
+collect2: error: ld returned 1 exit status
+make: *** [<builtin>: chkpass] Error 1
+```
+
