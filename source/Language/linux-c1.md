@@ -837,4 +837,103 @@ make: *** [<builtin>: chkpass] Error 1
 （2）调整完毕后，直接输出`tm`即可
 
 
+## P159 ~ P166 文件系统 - 进程环境
+
+### 1. 相关话题：
+
+（1）main函数
+
+```c
+int main(int argc, char **argv, /* 古早的C语言：环境变量作为第三个参数 */);
+```
+
+（2）进程的终止
+
+正常终止的情况：
+
+- 从main函数返回
+- 调用exit
+- 调用_exit或者_Exit
+- 最后一个线程从其启动例程中返回
+- 最后一个线程调用pthread_exit
+
+异常终止的情况：
+- 调用abort
+- 接到一个信号并终止
+- 最后一个线程对其取消请求作出响应
+
+（3）命令行参数分析
+
+（4）环境变量
+
+（5）C程序的存储空间布局
+
+（6）库
+
+（7）函数跳转
+
+（8）资源的获取其控制
+
+### 2. 钩子函数
+
+```c
+    #include <stdlib.h>
+
+    void exit(int status);
+```
+
+All functions registered with atexit(3) and on_exit(3) are called, in the reverse order  of  their  registration. 当调用exit时，所有由`atexit`或者`on_exit`注册的钩子函数将会以注册顺序逆序的方式调用。
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/atexit.c)
+
+```c
+    puts("BEGIN ...");
+    atexit(f1);
+    atexit(f2);
+    atexit(f3);
+    puts("END ...");
+```
+
+运行得到结果：
+
+```shell
+$ ./atexit
+BEGIN ...
+END ...
+f3 working !
+f2 working !
+f1 working !
+```
+
+```c
+    #include <stdlib.h>
+
+    int atexit(void (*function)(void));
+```
+
+`exit`、`_exit`和`_Exit`之间的区别如下图所示：
+
+![exit之间的区别](../media/images/Language/linux-c14.png)
+
+总结而言就是，`_exit`和`_Exit`是系统调用，调用它们会立即退出程序，而调用`exit`则是会首先进行各种清理，完成后再退出程序。
+
+什么时候使用`_exit`或者`_Exit`立即退出程序？主要是遇到踩内存这种严重错误的时候。
+
+### 3. 命令行参数分析
+
+```c
+    #include <unistd.h>
+
+    int getopt(int argc, char * const argv[],
+                const char *optstring);
+    int getopt_long(int argc, char * const argv[],
+                const char *optstring,
+                const struct option *longopts, int *longindex);
+```
+
+将上节的100days程序改造成支持命令行输入的形式
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/mydate.c)
+
+【pending】
 
