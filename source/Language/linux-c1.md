@@ -704,3 +704,137 @@ collect2: error: ld returned 1 exit status
 make: *** [<builtin>: chkpass] Error 1
 ```
 
+## P156 ~ P158 文件系统 - 时间戳
+
+### 1. 各种时间之间的转换
+系统中，各种时间之间的转换关系如下图所示：
+
+![时间之间的转换](../media/images/Language/linux-c13.png)
+
+时间的表示类型：
+
+（1）大整数：`time_t`
+
+（2）字符串：`char *`
+
+（3）结构体：`struct tm`
+
+对应的切换函数：
+
+（1）获取自1970年1月1日零时开始所经历的秒数：`time()`
+
+```c
+    #include <time.h>
+
+    time_t time(time_t *tloc);
+```
+
+（2）将`time_t`类型转换成`struct tm`类型：`gmtime()`
+
+```c
+    #include <time.h>
+
+    struct tm {
+        int tm_sec;    /* Seconds (0-60) */
+        int tm_min;    /* Minutes (0-59) */
+        int tm_hour;   /* Hours (0-23) */
+        int tm_mday;   /* Day of the month (1-31) */
+        int tm_mon;    /* Month (0-11) */
+        int tm_year;   /* Year - 1900 */
+        int tm_wday;   /* Day of the week (0-6, Sunday = 0) */
+        int tm_yday;   /* Day in the year (0-365, 1 Jan = 0) */
+        int tm_isdst;  /* Daylight saving time */
+    };
+
+    struct tm *gmtime(const time_t *timep);
+    struct tm *gmtime_r(const time_t *timep, struct tm *result);
+```
+
+
+（3）将`time_t`类型转换成`struct tm`类型：`localtime()`
+
+```c
+    #include <time.h>
+    struct tm *localtime(const time_t *timep);
+    struct tm *localtime_r(const time_t *timep, struct tm *result);
+```
+
+
+（4）将`struct tm`类型转换成`time_t`：`mktime()`
+
+```c
+    #include <time.h>
+    time_t mktime(struct tm *tm);
+```
+
+（5）将`struct tm`格式化成字符串
+
+```c
+    #include <time.h>
+
+    size_t strftime(char *s, size_t max, const char *format,
+                    const struct tm *tm);
+```
+
+### 2. 时间戳综合应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/timelog.c)
+
+要求往屏幕和文件中输出下面类似的时间戳，一秒一行：
+
+```shell
+0 2024-07-28 02:14:52
+1 2024-07-28 02:14:53
+2 2024-07-28 02:14:54
+3 2024-07-28 02:14:55
+```
+
+```c
+    while (1) {
+        stamp = time(NULL);
+        localtime_r(&stamp, &result);
+        memset(buffer, 0, BUFSIZE);
+        (void)strftime(buffer, BUFSIZE, "%Y-%m-%d %H:%M:%S", &result);
+        fprintf(stdout, "%u %s\n", count, buffer);
+        fprintf(fp, "%u %s\n", count, buffer);
+        fflush(NULL);
+
+        count++;
+        sleep(1);
+    }
+```
+
+解释：
+
+（1）使用`time()`从内核中获取当前所经历的秒数
+
+（2）使用`localtime_r`将`time_t`转换成`struct tm`
+
+（3）使用`strftime`将`struct tm`格式化成字符串
+
+### 3. 时间戳中和应用案例
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/100days.c)
+
+要求打印今天的年月日，然后再打印100天以后的年月日
+
+```c
+    stamp = time(NULL);
+    tm = localtime(&stamp);
+    strftime(timestr, TIMESIZE, "Now : %Y-%m-%d", tm);
+    puts(timestr);
+
+    tm->tm_mday += 100;
+    mktime(tm);
+    strftime(timestr, TIMESIZE, "100 Days After : %Y-%m-%d", tm);
+    puts(timestr);
+```
+
+解释：
+
+（1）直接将`tm_mday`字段加上100后，利用`mktime()`的副作用调整`tm`
+
+（2）调整完毕后，直接输出`tm`即可
+
+
+
