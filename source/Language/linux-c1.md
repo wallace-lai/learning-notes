@@ -937,3 +937,264 @@ f1 working !
 
 【pending】
 
+### 4. 环境变量
+
+**使用export查看环境变量：**
+
+```shell
+$ export
+declare -x DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
+declare -x HOME="/home/xxx"
+declare -x LANG="en_US.UTF-8"
+declare -x LESSCLOSE="/usr/bin/lesspipe %s %s"
+declare -x LESSOPEN="| /usr/bin/lesspipe %s"
+declare -x LOGNAME="xxx"
+declare -x MOTD_SHOWN="pam"
+declare -x OLDPWD
+declare -x PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin"
+declare -x PWD="/home/xxx"
+declare -x SHELL="/bin/bash"
+declare -x SHLVL="1"
+declare -x SSH_CLIENT="192.168.40.1 6331 22"
+declare -x SSH_CONNECTION="192.168.40.1 6331 192.168.40.135 22"
+declare -x SSH_TTY="/dev/pts/0"
+declare -x TERM="xterm-256color"
+declare -x USER="xxx"
+declare -x XDG_DATA_DIRS="/usr/local/share:/usr/share:/var/lib/snapd/desktop"
+declare -x XDG_RUNTIME_DIR="/run/user/1000"
+declare -x XDG_SESSION_CLASS="user"
+declare -x XDG_SESSION_ID="1"
+declare -x XDG_SESSION_TYPE="tty"
+```
+
+（1）HOME表示当前用户的家目录
+
+（2）PATH表示二进制命令所在路径，这些二进制命令被称为外部命令
+
+（3）PWD表示当前工作所在的路径
+
+（4）环境变量是程序员或者系统管理员跟操作系统之间的约定
+
+**环境变量相关接口：**
+
+```c
+    extern char **environ;
+
+    #include <stdlib.h>
+
+    char *getenv(const char *name);
+
+    int setenv(const char *name, const char *value, int overwrite);
+    int unsetenv(const char *name);
+```
+
+`environ`是一个`char *`数组，数组中的所有指针指向了一个环境变量的起始地址。
+
+**打印所有环境变量：**
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/myenv.c)
+
+```c
+extern char **environ;
+
+int main()
+{
+    for (int i = 0; environ[i] != NULL; i++) {
+        puts(environ[i]);
+    }
+
+    exit(0);
+}
+```
+
+查看运行结果：
+
+```shell
+$ ./myenv
+SHELL=/bin/bash
+PWD=/home/xxx/dev/learn-apue/src/fs
+LOGNAME=xxx
+XDG_SESSION_TYPE=tty
+MOTD_SHOWN=pam
+HOME=/home/xxx
+LANG=en_US.UTF-8
+SSH_CONNECTION=192.168.40.1 6331 192.168.40.135 22
+LESSCLOSE=/usr/bin/lesspipe %s %s
+XDG_SESSION_CLASS=user
+TERM=xterm-256color
+LESSOPEN=| /usr/bin/lesspipe %s
+USER=xxx
+SHLVL=1
+XDG_SESSION_ID=1
+XDG_RUNTIME_DIR=/run/user/1000
+SSH_CLIENT=192.168.40.1 6331 22
+XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/snapd/desktop
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+SSH_TTY=/dev/pts/0
+OLDPWD=/home/xxx
+_=./myenv
+```
+
+**get和set环境变量**
+
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/getenv.c)
+
+```c
+    puts(getenv("HOME"));
+    setenv("PNAME", "getenv.c", 1);
+    puts(getenv("PNAME"));
+```
+
+查看运行结果：
+
+```shell
+$ ./getenv
+/home/xxx
+getenv.c
+```
+
+setenv的原理：释放原先旧的环境变量，然后在堆上申请空间存放新的环境变量
+
+### 5. C程序空间分布
+
+![空间布局](../media/images/Language/linux-c15.png)
+
+注意：以32位X86机器上的Linux为例，上图只画了低地址0 ~ 3G的情况，即用户空间。而最高地址的1G属于内核空间。
+
+利用pmap命令查看getenv程序的空间分布情况：
+
+```shell
+$ pmap 5628
+5628:   ./getenv
+00005652530b1000      4K r---- getenv
+00005652530b2000      4K r-x-- getenv
+00005652530b3000      4K r---- getenv
+00005652530b4000      4K r---- getenv
+00005652530b5000      4K rw--- getenv
+000056525382c000    132K rw---   [ anon ]
+00007f8cfb684000    136K r---- libc-2.31.so
+00007f8cfb6a6000   1504K r-x-- libc-2.31.so
+00007f8cfb81e000    312K r---- libc-2.31.so
+00007f8cfb86c000     16K r---- libc-2.31.so
+00007f8cfb870000      8K rw--- libc-2.31.so
+00007f8cfb872000     24K rw---   [ anon ]
+00007f8cfb887000      4K r---- ld-2.31.so
+00007f8cfb888000    140K r-x-- ld-2.31.so
+00007f8cfb8ab000     32K r---- ld-2.31.so
+00007f8cfb8b4000      4K r---- ld-2.31.so
+00007f8cfb8b5000      4K rw--- ld-2.31.so
+00007f8cfb8b6000      4K rw---   [ anon ]
+00007ffd09037000    132K rw---   [ stack ]
+00007ffd090d5000     12K r----   [ anon ]
+00007ffd090d8000      4K r-x--   [ anon ]
+ffffffffff600000      4K --x--   [ anon ]
+ total             2492K
+```
+
+写程序验证C语言各种变量所在的空间分布。【pending】
+
+### 6. 库
+
+**库有以下几种：**
+
+（1）动态库
+
+（2）静态库
+
+（3）手工装载库
+
+**手工装载库相关接口**
+
+```c
+       #include <dlfcn.h>
+
+       void *dlopen(const char *filename, int flags);
+
+       int dlclose(void *handle);
+
+       void *dlsym(void *handle, const char *symbol);
+```
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#include <gnu/lib-names.h>  /* Defines LIBM_SO (which will be a
+                                string such as "libm.so.6") */
+int main(void)
+{
+    void *handle;
+    double (*cosine)(double);
+    char *error;
+
+    handle = dlopen(LIBM_SO, RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "%s\n", dlerror());
+        exit(EXIT_FAILURE);
+    }
+
+    dlerror();    /* Clear any existing error */
+
+    cosine = (double (*)(double)) dlsym(handle, "cos");
+
+    /* According to the ISO C standard, casting between function
+        pointers and 'void *', as done above, produces undefined results.
+        POSIX.1-2003 and POSIX.1-2008 accepted this state of affairs and
+        proposed the following workaround:
+            *(void **) (&cosine) = dlsym(handle, "cos");
+
+        This (clumsy) cast conforms with the ISO C standard and will
+        avoid any compiler warnings.
+
+        The 2013 Technical Corrigendum to POSIX.1-2008 (a.k.a.
+        POSIX.1-2013) improved matters by requiring that conforming
+        implementations support casting 'void *' to a function pointer.
+        Nevertheless, some compilers (e.g., gcc with the '-pedantic'
+        option) may complain about the cast used in this program. */
+
+    error = dlerror();
+    if (error != NULL) {
+        fprintf(stderr, "%s\n", error);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%f\n", (*cosine)(2.0));
+    dlclose(handle);
+    exit(EXIT_SUCCESS);
+}
+```
+
+解释：
+
+（1）使用`dlopen`延迟加载`libm.so.6`这个动态库
+
+（2）使用`dlsym`查找动态库中的`cos`函数
+
+（3）计算`cos(2.0)`的值并打印
+
+### 7. 函数跳转
+
+C语言中的goto语句无法实现跨函数跳转，但如果一定要跨函数跳转呢？比如在深度1万的树中递归查找某个值，如何快速返回？
+
+**跨函数跳转接口**
+
+```c
+    #include <setjmp.h>
+
+    int setjmp(jmp_buf env);
+    int sigsetjmp(sigjmp_buf env, int savesigs);
+
+    void longjmp(jmp_buf env, int val);
+    void siglongjmp(sigjmp_buf env, int val);
+```
+
+解释：
+
+（1）setjmp用于设置跳转点
+
+（2）longjmp用于跳转到指定的跳转点
+
+进度：9:10
+
+
