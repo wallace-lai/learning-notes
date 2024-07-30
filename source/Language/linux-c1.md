@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br>
 发布：2024-05-29 <br>
-更新：2024-05-29 <br>
+更新：2024-07-30 <br>
 
 文件系统对应APUE上的章节为：
 
@@ -1195,6 +1195,107 @@ C语言中的goto语句无法实现跨函数跳转，但如果一定要跨函数
 
 （2）longjmp用于跳转到指定的跳转点
 
-进度：9:10
+**函数跳转应用案例**
 
+[完整源码](https://github.com/wallace-lai/learn-apue/blob/main/src/fs/jump.c)
 
+```c
+static jmp_buf save;
+
+static void d(void)
+{
+    printf("%s() : BEGIN ...\n", __FUNCTION__);
+
+    printf("%s() : JUMP NOW ...\n", __FUNCTION__);
+    longjmp(save, 0);
+
+    printf("%s() : END ...\n", __FUNCTION__);
+}
+
+static void c(void)
+{
+    printf("%s() : BEGIN ...\n", __FUNCTION__);
+    printf("%s() : CALL d() ...\n", __FUNCTION__);
+    d();
+    printf("%s() : d() RETURNED ...\n", __FUNCTION__);
+    printf("%s() : END ...\n", __FUNCTION__);
+}
+
+static void b(void)
+{
+    printf("%s() : BEGIN ...\n", __FUNCTION__);
+    printf("%s() : CALL c() ...\n", __FUNCTION__);
+    c();
+    printf("%s() : c() RETURNED ...\n", __FUNCTION__);
+    printf("%s() : END ...\n", __FUNCTION__);
+}
+
+static void a(void)
+{
+    int ret;
+    printf("%s() : BEGIN ...\n", __FUNCTION__);
+
+    ret = setjmp(save);
+    if (ret == 0) {
+        printf("%s() : CALL b() ...\n", __FUNCTION__);
+        b();
+        printf("%s() : b() RETURNED ...\n", __FUNCTION__);
+    } else {
+        printf("%s() : JUMPED BACK HERE WITH CODE %d\n", __FUNCTION__, ret);
+    }
+
+    printf("%s() : END ...\n", __FUNCTION__);
+}
+
+int main()
+{
+    printf("%s() : BEGIN ...\n", __FUNCTION__);
+    printf("%s() : CALL a() ...\n", __FUNCTION__);
+    a();
+    printf("%s() : a() RETURNED ...\n", __FUNCTION__);
+    printf("%s() : END ...\n", __FUNCTION__);
+}
+```
+
+解释：
+
+（1）函数调用流程为：`main --> a --> b --> c --> d --> return a`；
+
+（2）在`a`函数中，如果`setjmp`返回值为0表示正常调用流程，如果非0则表示是从别的地方`longjmp`跳转过来的；
+
+（3）在`d`函数中，使用`longjmp`跳转到`a`函数中的`setjmp`处。如果故意设置返回值为0，则跳转后的真实返回值会用1代替；
+
+### 8. 资源的获取与控制
+
+**相关接口**
+
+```c
+    #include <sys/time.h>
+    #include <sys/resource.h>
+
+    struct rlimit {
+        rlim_t rlim_cur;  /* Soft limit */
+        rlim_t rlim_max;  /* Hard limit (ceiling for rlim_cur) */
+    };
+
+    int getrlimit(int resource, struct rlimit *rlim);
+    int setrlimit(int resource, const struct rlimit *rlim);
+```
+
+（1）无论是root用户还是普通用户，软限制`rlim_cur`都不能超过硬限制`rlim_max`；
+
+（2）普通用户对于自己的硬限制只能降低，不能抬高。对于软限制可以降低也可以抬高，但是不能超过硬限制；
+
+（3）root用户对于自己的硬限制可以降低，也可以抬高。对于软限制也可以降低也可以抬高，但是不能超过硬限制；
+
+（4）常见的`resource`：
+
+- RLIMIT_CORE：core文件大小限制
+- RLIMIT_FSIZE：所能创建的文件最大数值
+- RLIMIT_STACK：栈空间大小
+
+## 综合应用案例
+
+myls程序的实现。
+
+【pending】

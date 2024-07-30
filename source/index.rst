@@ -6,11 +6,11 @@
 
 .. raw:: html
 
-   <p style="text-align:center;">做困难但值得的事情</br>专注软件基础和人工智能领域</p>
+   <p style="text-align:center;">坚持做困难且有价值的事情</br>专注基础软件和人工智能领域</p>
 
 2024-07计划：
 
-（1）学习Linux C系统编程
+（1）学习Linux C系统编程【done】
 
 （2）复盘设计模式
 
