@@ -8,11 +8,11 @@
 
    <p style="text-align:center;">坚持做困难且有价值的事情</br>专注基础软件和人工智能领域</p>
 
-2024-07计划：
+2024-08计划：
 
-（1）学习Linux C系统编程【done】
+（1）学习算法
 
-（2）复盘设计模式
+（2）学习网络编程模型
 
 wallace-lai's notes
 ===============================================
@@ -22,6 +22,7 @@ wallace-lai's notes
 
    Unfiled/index.rst
    DataBase/index.rst
+   Communication/index.rst
    Language/index.rst
    SoftwareDesign/index.rst
    MachineLearning/index.rst
