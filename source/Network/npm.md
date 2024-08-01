@@ -140,5 +140,117 @@ IO多路复用主要复用的是**系统调用**。从原先非阻塞情况下�
 
 （1）每次select/poll都需要将注册管理的多个client从用户态拷贝到内核态，再从内核态拷贝到用户态。在管理百万连接时，由拷贝带来的开销较大，影响性能。
 
+## 6. IO多路复用2
 
+从主动轮询转变为被动通知，确实提升了性能。但select()/poll()每次调用都需要拷贝管理的全量的fd到内核态，导致影响性能，有没有办法改进呢？
+
+![IO多路复用2](../media/images/Network/npm7.png)
+
+**epoll三大核心接口**
+
+```c
+#include <sys/epoll.h>
+
+int epoll_create(int size);
+int epoll_create1(int flags);
+```
+
+（1）从linux2.6.8以后，size参数已经被忽略，但必须大于0
+
+（2）epoll_create()创建返回的epollfd指向内核中的一个epoll实例，同时该epollfd用来调用所有和epoll相关的接口(epoll_ctl()、epoll_wait())
+
+（3）当epollfd不再使用时，需要调用close()关闭。当所有指向epoll的文件描述符关闭后，内核会摧毁该epoll实例并释放和其关联的资源
+
+（4）成功返回时，返回大于0的epollfd。失败时返回-1，根据errno查看错误
+
+
+```c
+#include <sys/epoll.h>
+
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
+```
+
+**参数含义：**
+
+（1）epfd：通过epoll_create创建时返回的epollfd
+
+（2）op：添加（EPOLL_CTL_ADD）、更新（EPOLL_CTL_MOD）、删除（EPOLL_CTL_DEL）
+
+（3）fd：待监听的描述符
+
+（4）event：要监听的fd的事件（读、写、接收连接等）
+
+理解：将哪个客户端（fd）的哪些事件（event）交给哪个epoll（epfd）来管理
+
+**epoll重要事件介绍：**
+
+（1）EPOLLIN：表示对应文件描述符可以读（包括对端SOCKET正常关闭）
+
+（2）EPOLLOUT：表示对应文件描述符可以写
+
+（3）EPOLLPRI：表示对应的文件描述符有紧急的数据可读（这里应该表示有带外数据到来）
+
+（4）EPOLLERR：表示对应的文件描述符发生错误
+
+（5）EPOLLHUP：表示对应的文件描述符被挂断
+
+（6）EPOLLET：将epoll设置为边缘触发（Edge Triggered）模式，这是相对于水平触发（Level Triggered）来说的
+
+（7）EPOLLONESHOT：只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socket的话，需要再次把这个socket加入到EPOLL队列里
+
+```c
+#include <sys/epoll.h>
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+
+// 检测event
+if (event & EPOLLHUP) {
+    // ...
+}
+
+if (event & (EPOLLPRI | EPOLLERR | EPOLLHUP)) {
+    // ...
+}
+```
+
+**参数含义：**
+
+（1）epfd：通过epoll_create()创建的epollfd
+
+（2）events：返回就绪的事件列表，就绪的事件列表个数通过epoll_wait()的返回值来传递
+
+（3）maxevents：最多返回的events个数，该值用来告诉内核创建的events有多大
+
+（4）timeout：超时时间，-1表示无限期等待、0表示立即返回、timeout>0表示正常超时时间
+
+（5）返回值cnt：0表示超时时间范围内无就绪列表；大于0表示返回就绪列表的个数(后续通过循环遍历events[0]~events[cnt-1])；-1表示错误，通过errno来识别具体错误信息
+
+**epoll的边缘触发ET模式和水平触发LT模式的区别：**
+
+（1）触发时机
+
+- 对于ET模式，仅当监控的描述符有事件就绪时触发
+- 对于LT模式，当监控的描述符有事件就绪或就绪时间未完全处理完时都会触发
+
+（2）性能消耗
+
+- 对于ET模式，相同场景下所涉及的系统调用次数较少
+- 对于LT模式，相同场景下所涉及的系统调用次数较多
+
+（3）编程难度
+
+- 对于ET模式，难度较高，数据完整性由上层用户态保证
+- 对于LT模式，难度较低，数据完整性由内核来保证，epoll默认的就是LT模式
+
+**epoll的边缘触发ET模式和水平触发LT模式的相同点：**
+
+（1）都属于epoll内置的触发模式
+
+（2）都可以实现网络传输功能
+
+**epoll源码分析**
+
+epoll是一个数据结构封装的典型案例，有研究其实现的价值
+
+【pending】
 
