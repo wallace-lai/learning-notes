@@ -254,3 +254,58 @@ epoll是一个数据结构封装的典型案例，有研究其实现的价值
 
 【pending】
 
+## 7. 信号驱动IO
+
+![信号驱动IO](../media/images/Network/npm8.png)
+
+## 8. 异步IO
+
+![异步IO](../media/images/Network/npm9.png)
+
+**异步IO的支持情况**
+
+（1）windows
+
+- IOCP
+
+（2）Linux
+
+- gcc aio : aio_read、aio_write等（生产使用极少）
+- Libeio : 与gcc aio实现类似（阻塞IO + 线程池）
+- linux native aio : 仅支持linux，必须使用directIO，无法利用操作系统的pageCache
+- io_uring : linux 5.1开始支持
+
+**如何区分同步IO还是异步IO**
+
+（1）同步IO定义：a synchronous IO operation causes the requesting process to be blocked until that IO operation completes
+
+（2）异步IO定义：an asynchronous IO operation does not cause the requesting process to be blocked
+
+**五种IO模型的区别**
+
+![IO模型之间的区别](../media/images/Network/npm10.png)
+
+## 9. 网络相关问题
+
+（1）惊群效应
+
+（2）c10k问题
+
+## 10. 主流网络模型 - thread-based架构
+
+![thread-based](../media/images/Network/npm11.png)
+
+**架构特点**：针对每个客户端都创建一个线程去处理其请求
+
+**适用场景**：并发量不大的场景
+
+**原因**
+
+（1）线程的创建、销毁开销大
+
+（2）创建线程需要占用一定的资源
+
+（3）线程切换需要一定的资源开销
+
+（4）一个进程能开辟的线程数量有限
+
