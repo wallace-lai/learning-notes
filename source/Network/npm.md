@@ -2,7 +2,7 @@
 
 作者：wallace-lai <br/>
 发布：2024-07-27 <br/>
-更新：2023-07-27 <br/>
+更新：2023-08-04 <br/>
 
 ## 1. 客户端和服务端交互过程
 
@@ -308,4 +308,88 @@ epoll是一个数据结构封装的典型案例，有研究其实现的价值
 （3）线程切换需要一定的资源开销
 
 （4）一个进程能开辟的线程数量有限
+
+## 11. 主流网络模型 - single-reactor单线程架构
+
+![single-reactor单线程](../media/images/Network/npm12.png)
+
+### 架构特点
+
+（1）reactor对象通过select监控客户端请求事件，收到事件后通过dispatch进行分发；
+
+（2）如果是建立连接请求事件，则由Acceptor通过accept处理连接请求，然后创建一个Handler对象处理连接完成后的后续业务处理；
+
+（3）如果不是建立连接事件，则reactor会分发给连接对应的Handler来响应；
+
+（4）Handler会完成read、业务处理、send的完整业务流程；
+
+### 优点
+
+（1）模型简单，没有多线程、进程间通信、竞争的问题，因为全在一个线程中完成
+
+### 缺点
+
+（1）性能问题严重，只有一个线程，无法完全发挥多核CPU的性能。Handler在处理某个连接上的业务时，整个进程无法处理其他的连接事件，很容易导致性能瓶颈。
+
+（2）当其中某个Handler阻塞时，会导致其他所有client的Handler得不到执行。同时也会无法接收新的client连接请求，因为Accept也被阻塞了。
+
+### 适用场景
+
+（1）客户端的数量有限，业务处理非常快，比如Redis；
+
+## 12 主流网络模型 - single-reactor线程池架构
+
+![single-reactor线程池](../media/images/Network/npm13.png)
+
+### 架构特点
+
+（1）reactor通过select监控客户端请求事件，收到事件后通过dispatch进行分发；
+
+（2）如果是建立连接请求事件，则由Acceptor通过Accept处理连接请求，然后创建一个Handler对象处理后续的各种事件；
+
+（3）如果不是建立连接事件，则reactor会调用连接对应的Handler来响应；
+
+（4）Handler只负责响应事件，不做具体业务处理。通过read读取数据后，会分发给后面的Worker线程池进行业务处理；
+
+（5）Worker线程池会分配独立的线程完成真正的业务处理，然后将结果返还给Handler进行处理；
+
+（6）Handler收到响应结果后通过send将响应结果返给client；
+
+### 优点
+
+（1）可以充分利用CPU多核处理能力；
+
+### 缺点
+
+（1）多线程数据共享和访问比较复杂；
+
+（2）**reactor承担所有事件的监听和响应，在单线程中运行，高并发场景下容易成为性能瓶颈**；
+
+## 13 主流网络模型 - multi-reactor线程池架构
+
+![multi-reactor线程池](../media/images/Network/npm14.png)
+
+针对single-reactor线程池模型中，reactor在单线程中运行容易在高并发场景下成为性能瓶颈的问题，可以让reactor在多个线程中运行。这就是multi-reactor线程池架构。
+
+### 架构特点
+
+（1）reactor主线程MainReactor对象通过select监控建立连接事件，收到事件后通过Acceptor接受，处理建立连接事件；
+
+（2）Acceptor处理建立连接事件后，MainReactor再将连接分配给SubReactor进行处理；
+
+（3）SubReactor将连接加入连接队列进行监听，并创建一个Handler用于处理各种连接事件；
+
+（4）当SubReactor监听到有新的事件发生时，SubReactor会调用连接对应的Handler进行响应；
+
+（5）Handler只负责响应事件，不做具体业务处理。通过read读取数据后，会分发给后面的Worker线程池进行业务处理；
+
+（6）Worker线程池会分配独立的线程完成真正的业务处理，然后将结果返还给Handler进行处理；
+
+（7）Handler收到响应结果后通过send将响应结果返给client；
+
+### 优点
+
+（1）父进程与子线程的数据交互简单、职责明确，父线程只需要接收新连接，而由子线程完成后续的业务处理；
+
+（2）Reactor主线程只需要把连接传给子线程，子线程无需返回数据。这种模式在许多项目中广泛应用，包括Nginx主从Reactor模型、Memcached主从多线程、Netty主从多线程模型等。
 
