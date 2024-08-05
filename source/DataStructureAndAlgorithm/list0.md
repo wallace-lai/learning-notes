@@ -115,6 +115,44 @@ ListNode* reverseList(ListNode* head) {
 
 ## 中等
 
+### LeetCode 0019 删除链表倒数第N个结点
+
+思路：
+
+（1）让快慢指针指向链表第一个结点，快指针先往前走K步，随后快慢指针同时往前走，直到快指针走到头。这样可以找到倒数第K个结点（slow指针指向的即是）；
+
+```cpp
+    ListNode *findReverseKth(ListNode *head, int k) {
+        ListNode *slow = head;
+        ListNode *fast = head;
+        for (int i = 0; i < k; i++) {
+            fast = fast->next;
+        }
+        while (fast != nullptr) {
+            slow = slow->next;
+            fast = fast->next;
+        }
+
+        return slow;
+    }
+```
+
+（2）要想删除单链表倒数第n个结点，就要找到倒数第n + 1个结点。注意此时要使用哑结点；
+
+（3）找到倒数第n + 1个结点后，按照单链表方式删除即可
+
+```cpp
+    ListNode* removeNthFromEnd(ListNode* head, int n) {
+        // 单链表要删除倒数第n个结点，则要找到倒数第n + 1个结点
+        // 当n和链表元素个数相等时，第n + 1个结点会指向链表第1个结点的前一个结点
+        // 所以需要加上一个哑结点来表示第0个虚拟结点
+        ListNode dummy(0, head);
+        ListNode *prev = findReverseKth(&dummy, n + 1);
+        prev->next = prev->next->next;
+        return dummy.next;
+    }
+```
+
 ### LeetCode 0086 分隔链表
 
 ```cpp
@@ -286,4 +324,48 @@ ListNode* sortList(ListNode* head) {
 
 **方法二：使用优先队列**
 
-【pending】
+思路：
+
+（1）创建小顶堆的优先队列，将所有链表的第一个结点加入，因为K个链表中最小结点一定在所有链表的第一个结点之中；
+
+（2）从小顶堆中取出当前最小的结点，加入到新创建链表中，如果最小结点的next不为空，则将其next结点加入到小顶堆中；
+
+（3）重复步骤（2），直到队列为空为止；
+
+```cpp
+    struct Compare {
+        bool operator()(const ListNode *l, const ListNode *r) {
+            return l->val > r->val;
+        }
+    };
+
+    ListNode* mergeKLists(vector<ListNode*>& lists) {
+        if (lists.size() == 0) {
+            return nullptr;
+        }
+
+        ListNode dummy;
+        ListNode *curr = &dummy;
+
+        priority_queue<ListNode *, vector<ListNode *>, Compare> pq;
+        for (int i = 0; i < lists.size(); i++) {
+            if (lists[i] != nullptr) {
+                pq.push(lists[i]);
+            }
+        }
+
+        while (!pq.empty()) {
+            ListNode *minNode = pq.top();
+            pq.pop();
+
+            curr->next = minNode;
+            if (minNode->next != nullptr) {
+                pq.push(minNode->next);
+            }
+            curr = curr->next;
+        }
+
+        return dummy.next;
+    }
+```
+
