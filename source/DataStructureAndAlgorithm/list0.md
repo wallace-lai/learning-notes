@@ -4,7 +4,7 @@
 发布：2024-02-25 </br>
 更新：2024-08-05 <br>
 
-## 简单
+## 简单和中等
 
 ### LeetCode 0021 合并两个有序链表
 
@@ -35,6 +35,83 @@
     }
 ```
 
+### LeetCode 0141 环形链表
+
+思路：
+
+（1）要判断单链表是否存在环，可以让快慢指针同时指向头结点，每次快指针往前走2步，慢指针往前走1步；
+
+（2）重复步骤（1），如果走到最后发现快慢指针相遇了，则说明有环；如果走到最后快指针为空且没有和慢指针相遇则说明没有环；
+
+```cpp
+    bool hasCycle(ListNode *head) {
+        ListNode *fast = head;
+        ListNode *slow = head;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+            if (fast == slow) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+```
+
+### LeetCode 0142 环形链表2
+
+思路：
+
+假设链表中环外部分长度为$a$，slow指针又走了$b$的距离后与fast指针相遇。此时fast指针已经走过了环的$n$圈。此时fast指针所走过的距离为：
+
+$$
+a + n(b + c) + b
+$$
+
+由于任意时刻fast指针所走过的距离都是slow指针的两倍，所以有：
+
+$$
+a + n(b + c) + b = 2(a + b)
+$$
+
+即：
+
+$$
+a = c + (n - 1)(b + c)
+$$
+
+所以此时，如果让slow指针重新指向头结点，与fast指针一起每次都往前走1步。那么最终当slow指针走完了$a$步后，fast指针一定是走完了$n-1$圈后，又往前走了$c$步。此时slow和fast恰好在环点相遇了。
+
+![环形链表2](../media/images/DataStructureAndAlgorithm/list0.png)
+
+
+```cpp
+    ListNode *detectCycle(ListNode *head) {
+        if (!hasCycle(head)) {
+            return nullptr;
+        }
+
+        ListNode *fast = head;
+        ListNode *slow = slow;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+            if (fast == slow) {
+                break;
+            }
+        }
+
+        slow = head;
+        while (slow != fast) {
+            fast = fast->next;
+            slow = slow->next;
+        }
+
+        return slow;
+    }
+```
+
 ### LeetCode 0160 相交链表
 
 解题代码如下所示，思路很简单：让两个指针沿着链表往前走，**一旦到头就将指针值替换成另一条链表的头结点**。这样当两个指针相等时，指针所指向的结点就是两链表相交的结点。
@@ -54,6 +131,8 @@ ListNode *getIntersectionNode(ListNode *l1, ListNode *l2) {
 
 ### LeetCode 0206 反转链表
 
+**方法一：使用递归**
+
 反转链表是很多链表题目的基础操作，这里提供两种实现方法。首先是递归法，代码如下所示：
 
 ```cpp
@@ -68,6 +147,8 @@ ListNode* reverseList(ListNode* head) {
     return newHead;
 }
 ```
+
+**方法二：使用迭代**
 
 其次是迭代法，代码如下所示：
 
@@ -86,6 +167,10 @@ ListNode* reverseList(ListNode* head) {
     return dummy.next;
 }
 ```
+
+### LeetCode 0092 反转链表2
+
+【pending】
 
 ### LeetCode 0234 回文链表
 
@@ -113,7 +198,26 @@ ListNode* reverseList(ListNode* head) {
 
 思路很简单，和LeetCode 0705非常类似，代码略。
 
-## 中等
+### LeetCode 0876 链表的中间结点
+
+思路：
+
+（1）要寻找中间结点，可以让快慢指针同时指向链表第一个结点，随后快指针每次往前走2步，慢指针每次往前走1步；
+
+（2）重复步骤（1），直到**快指针为空，或者快指针的next为空**；
+
+```cpp
+    ListNode* middleNode(ListNode* head) {
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+        }
+
+        return slow;
+    }
+```
 
 ### LeetCode 0019 删除链表倒数第N个结点
 
