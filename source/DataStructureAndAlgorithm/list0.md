@@ -174,11 +174,15 @@ ListNode* reverseList(ListNode* head) {
 
 ### LeetCode 0234 回文链表
 
+**思路一**
+
 最简单的思路是：
 
 （1）先遍历链表，将序列存在vector中；
 
 （2）根据vector中的内容判断是否为回文链表。
+
+**思路二**
 
 但是该方法的空间复杂度是`O(N)`，如果需要空间复杂度为`O(1)`的方法，可以按照下面的步骤来做：
 
@@ -188,7 +192,90 @@ ListNode* reverseList(ListNode* head) {
 
 （3）比较链表的前后两半部分是否相同，若是则说明是回文串；否则不是
 
-但是这个方法会比较复杂，代码略。
+```cpp
+    bool isPalindrome(ListNode* head) {
+        // 寻找中点
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast != nullptr && fast->next != nullptr) {
+            slow = slow->next;
+            fast = fast->next->next;
+        }
+        if (fast != nullptr) {
+            // 结点个数为奇数
+            slow = slow->next;
+        }
+
+        // 逆序中点右侧部分链表
+        ListNode *left = head;
+        ListNode *right = reverseList(slow);
+
+        // 开始比较
+        while (right != nullptr) {
+            if (left->val != right->val) {
+                return false;
+            }
+            left = left->next;
+            right = right->next;
+        }
+
+        return true;
+    }
+```
+
+
+**思路三：使用递归**
+
+先扩展一个概念，即单链表的“前序遍历”和“后续遍历”，如下所示，一目了然：
+
+```cpp
+    void PreOrderTraverse(ListNode *head) {
+        if (head == nullptr) {
+            return;
+        }
+
+        cout << head->val << endl;
+        PreOrderTraverse(head->next);
+    }
+
+    void PostOrderTraverse(ListNode *head) {
+        if (head == nullptr) {
+            return;
+        }
+
+        PostOrderTraverse(head->next);
+        cout << head->val << endl;
+    }
+```
+
+利用单链表的后序遍历，我们可以得到单链表的逆序结果，所以判断单链表是否为回文链可以这么做：
+
+```cpp
+    void doCheck(ListNode **left, ListNode *right, bool *result) {
+        if (*result == false) {
+            // 一旦在某一步当中判断为不是回文则直接快速返回
+            return;
+        }
+        if (right == nullptr) {
+            return;
+        }
+
+        doCheck(left, right->next, result);
+        if ((*left)->val != right->val) {
+            *result = false;
+            return;
+        }
+        *left = (*left)->next;
+    }
+
+    bool isPalindrome(ListNode* head) {
+        ListNode *left = head;
+        bool result = true;
+        doCheck(&left, head, &result);
+        return result;
+    }
+```
+
 
 ### LeetCode 0705 设计哈希集合
 
