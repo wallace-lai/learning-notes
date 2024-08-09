@@ -59,6 +59,40 @@
     }
 ```
 
+### LeetCode 0083 删除排序链表中的重复元素
+思路：
+
+（1）利用快慢指针，当slow与fast指向不同元素时，将fast所指向元素添加到slow指针的后面并将slow指针往后移动一步；
+
+（2）重复步骤（1）直到fast指针遍历完整个链表
+
+```cpp
+    ListNode* deleteDuplicates(ListNode* head) {
+        if (head == nullptr) {
+            return nullptr;
+        }
+
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast != nullptr) {
+            if (fast->val != slow->val) {
+                slow->next = fast;
+                slow = slow->next;
+            }
+            fast = fast->next;
+        }
+
+        // 断开与后面重复元素的连接
+        slow->next = nullptr;
+        return head;
+    }
+```
+
+类似题型：
+
+（1）LeetCode 0026
+（2）LeetC
+
 ### LeetCode 0142 环形链表2
 
 思路：
