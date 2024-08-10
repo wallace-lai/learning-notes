@@ -73,6 +73,155 @@
 - LeetCode 0360
 - LeetCode 0977
 
+## 二叉树
+
+二叉树的解题模式有两大类：
+
+（1）**遍历思维**：通过遍历一遍二叉树配合外部变量记录来实现；
+
+（2）**分解思维**：定义一个递归函数，通过子问题（子树）的答案推导出原问题的答案；
+
+二叉树的遍历框架：
+
+```cpp
+void Traverse(TreeNode *root)
+{
+    if (root == nullptr) {
+        return;
+    }
+
+    // 前序位置
+    Traverse(root->left);
+    // 中序位置
+    Traverse(root->right);
+    // 后续位置
+}
+```
+
+**前序位置**：前序位置的代码在刚刚进入一个二叉树结点的时候执行；
+
+**后序位置**：后序位置的代码在即将要离开一个二叉树结点的时候执行；
+
+**中序位置**：中序位置的代码在一个二叉树结点左子树都遍历完毕，即将开始遍历右子树的时候执行
+
+将这两个概念扩展到数组和指针：
+
+```cpp
+// 迭代遍历数组
+void Traverse(vector<int> &arr)
+{
+    for (int i = 0; i < arr.size(); i++) {
+        // do something
+    }
+}
+
+// 递归遍历数组
+void Traverse(vector<int> &arr, int i)
+{
+    if (i == arr.size()) {
+        return;
+    }
+
+    // 前序位置
+    Traverse(arr, i + 1);
+    // 后序位置
+}
+```
+
+```cpp
+struct ListNode {
+    int val;
+    ListNode *next;
+};
+
+// 迭代遍历
+void Traverse(ListNode *head)
+{
+    for (ListNode *p = head; p != nullptr; p = p->next) {
+        // do something
+    }
+}
+
+// 递归遍历
+void Traverse(ListNode *head)
+{
+    if (head == nullptr) {
+        return;
+    }
+
+    // 前序位置
+    Traverse(head->next);
+    // 后序位置
+}
+```
+
+
+
+
+
+二叉树的层序遍历：
+
+```cpp
+void LevelOrderTraverse(TreeNode *root)
+{
+    if (root == nullptr) {
+        return;
+    }
+
+    queue<TreeNode *> q;
+    q.push(root);
+    while (!q.empty()) {
+        TreeNode *curr = q.front();
+        q.pop();
+
+        // do something on curr
+
+        if (curr->left != nullptr) {
+            q.push(curr->left);
+        }
+        if (curr->right != nullptr) {
+            q.push(curr->right);
+        }
+    }
+}
+```
+
+如果需要通过层序遍历获知二叉树的深度，可以这么做：
+
+```cpp
+void LevelOrderTraverse(TreeNode *root)
+{
+    if (root == nullptr) {
+        return;
+    }
+
+    queue<TreeNode *> q;
+    q.push(root);
+    int depth = 1;
+
+    while (!q.empty()) {
+        int size = q.size();
+        for (int i = 0; i < size; i++) {
+            TreeNode *curr = q.front();
+            q.pop();
+
+            // do something on curr
+
+            if (curr->left != nullptr) {
+                q.push(curr->left);
+            }
+            if (curr->right != nullptr) {
+                q.push(curr->right);
+            }
+        }
+
+        depth++;
+    }
+}
+```
+
+
+## 二叉搜索树
 
 
 
