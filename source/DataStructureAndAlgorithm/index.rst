@@ -1,19 +1,16 @@
 算法与数据结构
 ===============================
 
+.. raw:: html
+
+   <p>对应仓库<a style="font-weight:bold; text-decoration:underline;" href="https://github.com/wallace-lai/ATC" target="_blank">地址</a></p>
+
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
 
-    table.md
-    atc0.md 
+    algorithms.md
+    data-structure.md 
 
-    heap0.md
-    list0.md
     array0.md
-    two-pointers.md
-    bit-operation0.md
-    stack-queue0.md
-    binary-search0.md
-    dp0.md
-    dfs0.md
-    bfs0.md
+    list0.md
+    binary-tree0.md

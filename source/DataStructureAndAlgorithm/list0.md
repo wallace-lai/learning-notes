@@ -4,166 +4,10 @@
 发布：2024-02-25 </br>
 更新：2024-08-05 <br>
 
-## 简单和中等
+## 算法原理
 
-### LeetCode 0021 合并两个有序链表
-
-```cpp
-    ListNode* mergeTwoLists(ListNode* list1, ListNode* list2) {
-        ListNode dummy;
-        ListNode *p = &dummy;
-
-        while (list1 != nullptr && list2 != nullptr) {
-            if (list1->val < list2->val) {
-                p->next = list1;
-                list1 = list1->next;
-            } else {
-                p->next = list2;
-                list2 = list2->next;
-            }
-            p = p->next;
-        }
-
-        ListNode *remain = (list1 != nullptr ? list1 : list2);
-        while (remain != nullptr) {
-            p->next = remain;
-            remain = remain->next;
-            p = p->next;
-        }
-
-        return dummy.next;
-    }
-```
-
-### LeetCode 0141 环形链表
-
-思路：
-
-（1）要判断单链表是否存在环，可以让快慢指针同时指向头结点，每次快指针往前走2步，慢指针往前走1步；
-
-（2）重复步骤（1），如果走到最后发现快慢指针相遇了，则说明有环；如果走到最后快指针为空且没有和慢指针相遇则说明没有环；
-
-```cpp
-    bool hasCycle(ListNode *head) {
-        ListNode *fast = head;
-        ListNode *slow = head;
-        while (fast != nullptr && fast->next != nullptr) {
-            fast = fast->next->next;
-            slow = slow->next;
-            if (fast == slow) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-```
-
-### LeetCode 0083 删除排序链表中的重复元素
-思路：
-
-（1）利用快慢指针，当slow与fast指向不同元素时，将fast所指向元素添加到slow指针的后面并将slow指针往后移动一步；
-
-（2）重复步骤（1）直到fast指针遍历完整个链表
-
-```cpp
-    ListNode* deleteDuplicates(ListNode* head) {
-        if (head == nullptr) {
-            return nullptr;
-        }
-
-        ListNode *slow = head;
-        ListNode *fast = head;
-        while (fast != nullptr) {
-            if (fast->val != slow->val) {
-                slow->next = fast;
-                slow = slow->next;
-            }
-            fast = fast->next;
-        }
-
-        // 断开与后面重复元素的连接
-        slow->next = nullptr;
-        return head;
-    }
-```
-
-类似题型：
-
-（1）LeetCode 0026
-（2）LeetC
-
-### LeetCode 0142 环形链表2
-
-思路：
-
-假设链表中环外部分长度为$a$，slow指针又走了$b$的距离后与fast指针相遇。此时fast指针已经走过了环的$n$圈。此时fast指针所走过的距离为：
-
-$$
-a + n(b + c) + b
-$$
-
-由于任意时刻fast指针所走过的距离都是slow指针的两倍，所以有：
-
-$$
-a + n(b + c) + b = 2(a + b)
-$$
-
-即：
-
-$$
-a = c + (n - 1)(b + c)
-$$
-
-所以此时，如果让slow指针重新指向头结点，与fast指针一起每次都往前走1步。那么最终当slow指针走完了$a$步后，fast指针一定是走完了$n-1$圈后，又往前走了$c$步。此时slow和fast恰好在环点相遇了。
-
-![环形链表2](../media/images/DataStructureAndAlgorithm/list0.png)
-
-
-```cpp
-    ListNode *detectCycle(ListNode *head) {
-        if (!hasCycle(head)) {
-            return nullptr;
-        }
-
-        ListNode *fast = head;
-        ListNode *slow = slow;
-        while (fast != nullptr && fast->next != nullptr) {
-            fast = fast->next->next;
-            slow = slow->next;
-            if (fast == slow) {
-                break;
-            }
-        }
-
-        slow = head;
-        while (slow != fast) {
-            fast = fast->next;
-            slow = slow->next;
-        }
-
-        return slow;
-    }
-```
-
-### LeetCode 0160 相交链表
-
-解题代码如下所示，思路很简单：让两个指针沿着链表往前走，**一旦到头就将指针值替换成另一条链表的头结点**。这样当两个指针相等时，指针所指向的结点就是两链表相交的结点。
-
-```cpp
-ListNode *getIntersectionNode(ListNode *l1, ListNode *l2) {
-    ListNode *A = l1;
-    ListNode *B = l2;
-    while (A != B) {
-        A = (A != nullptr) ? A->next : l2;
-        B = (B != nullptr) ? B->next : l1;
-    }
-
-    return A;
-}
-```
-
-### LeetCode 0206 反转链表
+## 1. 反转链表
+### LeetCode 0206
 
 **方法一：使用递归**
 
@@ -202,11 +46,11 @@ ListNode* reverseList(ListNode* head) {
 }
 ```
 
-### LeetCode 0092 反转链表2
+### LeetCode 0092
 
 【pending】
 
-### LeetCode 0234 回文链表
+### LeetCode 0234
 
 **思路一**
 
@@ -310,152 +154,11 @@ ListNode* reverseList(ListNode* head) {
     }
 ```
 
+## 2. 合并有序链表
 
-### LeetCode 0705 设计哈希集合
+### LeetCode 0021
 
-解题思路很简单，简单写一个拉链法的哈希桶即可，代码略。
-
-### LeetCode 0706 设计哈希映射
-
-思路很简单，和LeetCode 0705非常类似，代码略。
-
-### LeetCode 0876 链表的中间结点
-
-思路：
-
-（1）要寻找中间结点，可以让快慢指针同时指向链表第一个结点，随后快指针每次往前走2步，慢指针每次往前走1步；
-
-（2）重复步骤（1），直到**快指针为空，或者快指针的next为空**；
-
-```cpp
-    ListNode* middleNode(ListNode* head) {
-        ListNode *slow = head;
-        ListNode *fast = head;
-        while (fast != nullptr && fast->next != nullptr) {
-            fast = fast->next->next;
-            slow = slow->next;
-        }
-
-        return slow;
-    }
-```
-
-### LeetCode 0019 删除链表倒数第N个结点
-
-思路：
-
-（1）让快慢指针指向链表第一个结点，快指针先往前走K步，随后快慢指针同时往前走，直到快指针走到头。这样可以找到倒数第K个结点（slow指针指向的即是）；
-
-```cpp
-    ListNode *findReverseKth(ListNode *head, int k) {
-        ListNode *slow = head;
-        ListNode *fast = head;
-        for (int i = 0; i < k; i++) {
-            fast = fast->next;
-        }
-        while (fast != nullptr) {
-            slow = slow->next;
-            fast = fast->next;
-        }
-
-        return slow;
-    }
-```
-
-（2）要想删除单链表倒数第n个结点，就要找到倒数第n + 1个结点。注意此时要使用哑结点；
-
-（3）找到倒数第n + 1个结点后，按照单链表方式删除即可
-
-```cpp
-    ListNode* removeNthFromEnd(ListNode* head, int n) {
-        // 单链表要删除倒数第n个结点，则要找到倒数第n + 1个结点
-        // 当n和链表元素个数相等时，第n + 1个结点会指向链表第1个结点的前一个结点
-        // 所以需要加上一个哑结点来表示第0个虚拟结点
-        ListNode dummy(0, head);
-        ListNode *prev = findReverseKth(&dummy, n + 1);
-        prev->next = prev->next->next;
-        return dummy.next;
-    }
-```
-
-### LeetCode 0086 分隔链表
-
-```cpp
-    ListNode* partition(ListNode* head, int x) {
-        ListNode l1;
-        ListNode l2;
-        ListNode *p1 = &l1;
-        ListNode *p2 = &l2;
-
-        ListNode dummy(0, head);
-        ListNode *curr = dummy.next;
-        while (curr != nullptr) {
-            // 将curr结点移动到新链表中
-            if (curr->val < x) {
-                p1->next = curr;
-                p1 = p1->next;
-            } else {
-                p2->next = curr;
-                p2 = p2->next;
-            }
-
-            // 将curr结点与后序结点断链
-            dummy.next = curr->next;
-            curr->next = nullptr;
-            curr = dummy.next;
-        }
-
-        // 将链表2合并到链表1的末尾
-        p1->next = l2.next;
-        return l1.next;
-    }
-```
-
-### LeetCode 0143 重排链表
-
-
-解题思路如下：
-
-（1）先通过快慢指针将链表分为左右两部分，对右边部分进行逆序
-
-（2）对左边部分和逆序后的右半部分进行merge操作即可
-
-核心代码如下：
-
-```cpp
-void reorderList(ListNode* head) {
-    ListNode *mid = FindMiddle(head);
-
-    ListNode *l1 = head;
-    ListNode *l2 = reverseList(mid->next);
-    mid->next = nullptr;
-
-    ListNode dummy(0, nullptr);
-    ListNode *curr = &dummy;
-    while (l1 != nullptr && l2 != nullptr) {
-        curr->next = l1;
-        l1 = l1->next;
-        curr = curr->next;
-
-        curr->next = l2;
-        l2 = l2->next;
-        curr = curr->next;
-    }
-    curr->next = l1;
-
-    return;
-}
-```
-
-### LeetCode 0146 LRU缓存
-
-解题思路如下：
-
-（1）首先维护一个双向链表，因为要满足LRU的规则需要频繁地将链表中的元素移动到链表头部，所以选择便于删除的双向链表
-
-（2）还要维护一个key到对应链表结点的映射表，目的是快速地找到在缓存中的key-value对
-
-### LeetCode 0148 排序链表
+### LeetCode 0148
 
 对于链表而言，似乎更容易使用归并排序算法对其进行排序。
 
@@ -497,17 +200,38 @@ ListNode* sortList(ListNode* head) {
 ```
 
 
+```cpp
+    ListNode* mergeTwoLists(ListNode* list1, ListNode* list2) {
+        ListNode dummy;
+        ListNode *p = &dummy;
 
+        while (list1 != nullptr && list2 != nullptr) {
+            if (list1->val < list2->val) {
+                p->next = list1;
+                list1 = list1->next;
+            } else {
+                p->next = list2;
+                list2 = list2->next;
+            }
+            p = p->next;
+        }
 
+        ListNode *remain = (list1 != nullptr ? list1 : list2);
+        while (remain != nullptr) {
+            p->next = remain;
+            remain = remain->next;
+            p = p->next;
+        }
 
-### LeetCode 0445 两数相加2
+        return dummy.next;
+    }
+```
+
+### LeetCode 0445
 
 解题思路很简单，先把两个链表逆序，然后再模拟加法计算即可。计算得到新结点以头插法的形式插入这样可以避免对结果链表再次进行逆序。
 
-
-## 困难
-
-### LeetCode 0023 合并K个升序链表
+### LeetCode 0023
 
 **方法一：使用递归**
 
@@ -594,3 +318,284 @@ ListNode* sortList(ListNode* head) {
     }
 ```
 
+
+## 2. 链表的分解
+
+### LeetCode 0086
+```cpp
+    ListNode* partition(ListNode* head, int x) {
+        ListNode l1;
+        ListNode l2;
+        ListNode *p1 = &l1;
+        ListNode *p2 = &l2;
+
+        ListNode dummy(0, head);
+        ListNode *curr = dummy.next;
+        while (curr != nullptr) {
+            // 将curr结点移动到新链表中
+            if (curr->val < x) {
+                p1->next = curr;
+                p1 = p1->next;
+            } else {
+                p2->next = curr;
+                p2 = p2->next;
+            }
+
+            // 将curr结点与后序结点断链
+            dummy.next = curr->next;
+            curr->next = nullptr;
+            curr = dummy.next;
+        }
+
+        // 将链表2合并到链表1的末尾
+        p1->next = l2.next;
+        return l1.next;
+    }
+```
+
+
+### LeetCode 0143
+
+
+解题思路如下：
+
+（1）先通过快慢指针将链表分为左右两部分，对右边部分进行逆序
+
+（2）对左边部分和逆序后的右半部分进行merge操作即可
+
+核心代码如下：
+
+```cpp
+void reorderList(ListNode* head) {
+    ListNode *mid = FindMiddle(head);
+
+    ListNode *l1 = head;
+    ListNode *l2 = reverseList(mid->next);
+    mid->next = nullptr;
+
+    ListNode dummy(0, nullptr);
+    ListNode *curr = &dummy;
+    while (l1 != nullptr && l2 != nullptr) {
+        curr->next = l1;
+        l1 = l1->next;
+        curr = curr->next;
+
+        curr->next = l2;
+        l2 = l2->next;
+        curr = curr->next;
+    }
+    curr->next = l1;
+
+    return;
+}
+```
+
+## 3. 寻找链表倒数第K个元素
+### LeetCode 0019
+
+思路：
+
+（1）让快慢指针指向链表第一个结点，快指针先往前走K步，随后快慢指针同时往前走，直到快指针走到头。这样可以找到倒数第K个结点（slow指针指向的即是）；
+
+```cpp
+    ListNode *findReverseKth(ListNode *head, int k) {
+        ListNode *slow = head;
+        ListNode *fast = head;
+        for (int i = 0; i < k; i++) {
+            fast = fast->next;
+        }
+        while (fast != nullptr) {
+            slow = slow->next;
+            fast = fast->next;
+        }
+
+        return slow;
+    }
+```
+
+（2）要想删除单链表倒数第n个结点，就要找到倒数第n + 1个结点。注意此时要使用哑结点；
+
+（3）找到倒数第n + 1个结点后，按照单链表方式删除即可
+
+```cpp
+    ListNode* removeNthFromEnd(ListNode* head, int n) {
+        // 单链表要删除倒数第n个结点，则要找到倒数第n + 1个结点
+        // 当n和链表元素个数相等时，第n + 1个结点会指向链表第1个结点的前一个结点
+        // 所以需要加上一个哑结点来表示第0个虚拟结点
+        ListNode dummy(0, head);
+        ListNode *prev = findReverseKth(&dummy, n + 1);
+        prev->next = prev->next->next;
+        return dummy.next;
+    }
+```
+
+## 4. 寻找链表中点
+### LeetCode 0876
+
+思路：
+
+（1）要寻找中间结点，可以让快慢指针同时指向链表第一个结点，随后快指针每次往前走2步，慢指针每次往前走1步；
+
+（2）重复步骤（1），直到**快指针为空，或者快指针的next为空**；
+
+```cpp
+    ListNode* middleNode(ListNode* head) {
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+        }
+
+        return slow;
+    }
+```
+
+## 5. 判断链表是否存在环并找出起点
+
+### LeetCode 0141
+
+思路：
+
+（1）要判断单链表是否存在环，可以让快慢指针同时指向头结点，每次快指针往前走2步，慢指针往前走1步；
+
+（2）重复步骤（1），如果走到最后发现快慢指针相遇了，则说明有环；如果走到最后快指针为空且没有和慢指针相遇则说明没有环；
+
+```cpp
+    bool hasCycle(ListNode *head) {
+        ListNode *fast = head;
+        ListNode *slow = head;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+            if (fast == slow) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+```
+
+### LeetCode 0142
+
+思路：
+
+假设链表中环外部分长度为$a$，slow指针又走了$b$的距离后与fast指针相遇。此时fast指针已经走过了环的$n$圈。此时fast指针所走过的距离为：
+
+$$
+a + n(b + c) + b
+$$
+
+由于任意时刻fast指针所走过的距离都是slow指针的两倍，所以有：
+
+$$
+a + n(b + c) + b = 2(a + b)
+$$
+
+即：
+
+$$
+a = c + (n - 1)(b + c)
+$$
+
+所以此时，如果让slow指针重新指向头结点，与fast指针一起每次都往前走1步。那么最终当slow指针走完了$a$步后，fast指针一定是走完了$n-1$圈后，又往前走了$c$步。此时slow和fast恰好在环点相遇了。
+
+![环形链表2](../media/images/DataStructureAndAlgorithm/list0.png)
+
+
+```cpp
+    ListNode *detectCycle(ListNode *head) {
+        if (!hasCycle(head)) {
+            return nullptr;
+        }
+
+        ListNode *fast = head;
+        ListNode *slow = slow;
+        while (fast != nullptr && fast->next != nullptr) {
+            fast = fast->next->next;
+            slow = slow->next;
+            if (fast == slow) {
+                break;
+            }
+        }
+
+        slow = head;
+        while (slow != fast) {
+            fast = fast->next;
+            slow = slow->next;
+        }
+
+        return slow;
+    }
+```
+
+## 6. 判断链表是否相交并找出交点
+
+### LeetCode 0160
+
+解题代码如下所示，思路很简单：让两个指针沿着链表往前走，**一旦到头就将指针值替换成另一条链表的头结点**。这样当两个指针相等时，指针所指向的结点就是两链表相交的结点。
+
+```cpp
+ListNode *getIntersectionNode(ListNode *l1, ListNode *l2) {
+    ListNode *A = l1;
+    ListNode *B = l2;
+    while (A != B) {
+        A = (A != nullptr) ? A->next : l2;
+        B = (B != nullptr) ? B->next : l1;
+    }
+
+    return A;
+}
+```
+
+## 7. 其他
+
+### LeetCode 0083
+思路：
+
+（1）利用快慢指针，当slow与fast指向不同元素时，将fast所指向元素添加到slow指针的后面并将slow指针往后移动一步；
+
+（2）重复步骤（1）直到fast指针遍历完整个链表
+
+```cpp
+    ListNode* deleteDuplicates(ListNode* head) {
+        if (head == nullptr) {
+            return nullptr;
+        }
+
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast != nullptr) {
+            if (fast->val != slow->val) {
+                slow->next = fast;
+                slow = slow->next;
+            }
+            fast = fast->next;
+        }
+
+        // 断开与后面重复元素的连接
+        slow->next = nullptr;
+        return head;
+    }
+```
+
+
+
+
+### LeetCode 0705
+
+解题思路很简单，简单写一个拉链法的哈希桶即可，代码略。
+
+### LeetCode 0706
+
+思路很简单，和LeetCode 0705非常类似，代码略。
+
+
+### LeetCode 0146
+
+解题思路如下：
+
+（1）首先维护一个双向链表，因为要满足LRU的规则需要频繁地将链表中的元素移动到链表头部，所以选择便于删除的双向链表
+
+（2）还要维护一个key到对应链表结点的映射表，目的是快速地找到在缓存中的key-value对
