@@ -4,9 +4,37 @@
 发布：2024-02-25 </br>
 更新：2024-08-09 <br>
 
-## 简单与中等
+## 0. 其他
 
-### LeetCode 0026 删除有序数组中的重复项
+## 1. 前缀和
+
+### LeetCode 0303
+### LeetCode 0304
+### LeetCode 0724
+### LeetCode 1314
+### 剑指Offer 0013
+
+## 2. 前缀和加哈希表
+
+### LeetCode 0325
+### LeetCode 0437
+### LeetCode 0523
+### LeetCode 0525
+### LeetCode 0560
+### LeetCode 0713
+### LeetCode 1124
+### LeetCode 1658
+### 剑指Offer 0010
+### 剑指Offer 0011
+
+
+## 3. 前缀积
+
+### LeetCode 0238
+
+## 4. 双指针
+
+### LeetCode 0026
 
 思路：
 
@@ -39,6 +67,3 @@
 类似题型：
 
 （1）LeetCode 0083
-
-
-## 困难
