@@ -46,3 +46,50 @@ $$
 - [ ] Step 2
 - [ ] Step 3
 
+## 4. sphinx-design
+
+### 4.1 下拉列表
+
+（1）不带标题的下拉列表
+
+```{dropdown}
+下拉列表内容
+```
+
+（2）带标题的下拉列表
+
+```{dropdown} 下拉列表标题
+下拉列表内容
+```
+
+（3）默认打开的下拉列表
+
+```{dropdown} 默认打开的下拉列表
+:open:
+
+下拉列表内容
+```
+
+### 4.2 卡片
+
+
+## 5. sphinx-version-warning
+
+源码：
+```html
+<div id="{id_div0}" class="admonition {note}">
+  <p class="first admonition-title">注意</p>
+  <p class="last">
+    注意事项内容
+  </p>
+</div>
+```
+
+显示效果：
+<div id="{id_div0}" class="admonition {note}">
+  <p class="first admonition-title">注意事项</p>
+  <p class="last">
+    注意事项内容
+  </p>
+</div>
+
