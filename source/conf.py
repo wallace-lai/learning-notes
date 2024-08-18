@@ -31,6 +31,8 @@ extensions = [
     'myst_parser',
     'sphinxcontrib.mermaid',
     'sphinx.ext.mathjax',
+    'sphinx_design',
+    'versionwarning.extension',
 ]
 
 # Extensions for myst_parser
