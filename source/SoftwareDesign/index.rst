@@ -18,6 +18,7 @@
     design-pattern11.md
 
     4-plus-1-view0.md
+    uml0.md
 
     c-best-practice-0.md
     c-best-practice-1.md
