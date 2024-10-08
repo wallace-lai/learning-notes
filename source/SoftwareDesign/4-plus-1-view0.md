@@ -4,7 +4,7 @@
 发布：2024-07-13 <br>
 更新：2024-10-03 <br>
 
-# 介绍
+## 一、介绍
 
 ![4plus1](../media/images/SoftwareDesign/4plus1-0.png)
 
@@ -198,7 +198,184 @@
 
 
 ## 六、逻辑视图案例
+逻辑视图关注类和对象的划分，对于整个系统，划分成以下几个对象：
+
+（1）Controller：指挥其他对象实现系统功能
+
+（2）DeviceStatusWindow：用户界面，显示设备状态
+
+（3）DebugWindow：用户界面，供调试人员输入调试命令
+
+说明：因为系统使用场景只有自然人操作，没有机器或脚本操作，所以当前只提供图形界面
+
+（4）Device：实现系统跟设备（包括数据采集器）的交换
+说明：为什么不设计一个数据采集器对象？虽然系统会和数据采集器交互，但数据采集器只是起到类似通道的作用，系统采集的还是设备的状态信息。
+
+```
+@startuml
+
+class Controller
+
+class DeviceStatusWindow
+
+class DebugWindow
+
+class Device
+{
+    GetStatus()
+    SendCmd()
+}
+
+Controller ..> Device
+
+Controller ..> DeviceStatusWindow
+DeviceStatusWindow ..> Controller
+
+Controller ..> DebugWindow
+DebugWindow ..> Controller
+
+@enduml
+```
+
+![逻辑视图](../media/images/SoftwareDesign/4plus1-3.png)
+
+
+**逻辑视图案例演练的启示**
+
+（1）除了描述决策结果，还要描述决策过程。后续看设计文档时，决策过程比决策结果更有价值；
+
+（2）设计过程中要不断地确认和细化需求；
+
+（3）在逻辑视图阶段，我们跟客户交流的重点：**更细节的功能需求**；
 
 ## 七、过程视图案例
 
+过程视图主要是设计任务和任务之间的并发与同步。根据需求可知，系统应该支持并发操作但并发数不是很多（支持2到3人调试）。且系统对性能的要求不是很高，因为并发量不高且自然人操作要比机器操作更慢。
+
+整个系统的进程划分如下所示：
+
+（1）界面进程
+
+根据需求要求支持多人（2到3人）同时调试，所以需要多个承载界面运行的进程，每个设备调试人员一个进程；
+
+DeviceStatusWindow和DebugWindow都运行在界面进程上；
+
+（2）主控进程
+
+因为界面进程并发数量很低，所以用一个主控进程来支持。Controller运行在主控进程上，它接收DebugWindow发来的调试命令，收到后就调用Device的方法把调试命令发送给设备。如果一条调试命令正在执行又来了一条调试命令，那么先等当前的命令处理完再处理下一条调试命令。
+
+Controller和Device不用并发执行，所以Device也运行在主控进程上。
+
+查看设备状态有两种可能性：
+
+1. 查看设备状态由调试人员来触发，其过程与DebugWindow发送调试命令类似；
+2. 只要DeviceStatusWindow一打开，就要实时更新设备状态；
+
+假设是第二种可能性，则需要一个定时器。
+
+（3）定时器
+
+由Controller启动一个定时器，由Controller定时查询设备状态，并在查询后将状态信息通知给DeviceStatusWindow。
+
 ## 八、实现视图和部署视图案例
+
+实现视图的关注点是**软件在其开发环境中的静态组织结构**，以使得开发工作更简单、代码的可复用性更高。
+
+实现视图通常要解决以下这些问题：
+
+（1）系统要分解为哪些模块、子系统；
+
+（2）使用第三方软件，还是自研代码；
+
+（3）代码库怎么组织；
+
+（4）如何进行配置管理；
+
+（5）编译生成哪些可执行文件、动态库；
+
+**实现视图设计**
+
+DeviceStatusWindow和DebugWindow ：使用Windows MFC开发
+
+Controller和Device ：基于Linux开发，Device通过成熟的开源软件S232实现串口通信
+
+```
+@startuml
+
+component win {
+    skinparam componentStyle rectangle
+    [DeviceStatusWindow]
+    [DebugWindow]
+    [MFC]
+    skinparam componentStyle default
+}
+
+DeviceStatusWindow ..> MFC
+DebugWindow ..> MFC
+
+component Controller
+
+component Device {
+    [S232]
+}
+
+Controller .> Device
+
+DebugWindow ..> Controller
+Controller ..> DebugWindow
+
+DeviceStatusWindow ..> Controller
+Controller ..> DeviceStatusWindow
+
+@enduml
+```
+
+![实现视图](../media/images/SoftwareDesign/4plus1-4.png)
+
+**实现视图案例演示启示**
+
+（1）各个视图的设计并不是完全并列的，有时需要从多个视图的角度结合起来思考，但可以分开描述；
+
+（2）有些视图也可以合在一起描述。特别是在系统比较简单时，逻辑视图和实现视图输出的内容差不多，常常可以合并在一起描述，但这两个视图的关注点仍然是完全不同的，还是需要从不同的关注点来思考；
+
+**部署视图设计**
+
+```
+@startuml
+
+node win_1
+node win_2
+node win_3
+
+note left of win_1 : include DeviceStatusWindow and DebugWindow
+
+node server {
+    rectangle Controller
+    rectangle Device
+}
+
+node "设备" as w1
+node "数据采集器" as w2
+
+cloud ethernet
+
+win_1 -- ethernet
+win_2 -- ethernet
+win_3 -- ethernet
+
+ethernet -- server
+
+Device -- w1 : RS232
+Device -- w2 : RS232
+
+@enduml
+```
+
+![部署视图](../media/images/SoftwareDesign/4plus1-5.png)
+
+说明：
+
+（1）DeviceStatusWindow和DebugWindow部署在调式人员本地电脑上，针对每个设备调试人员单独部署。部署依赖于MFC环境；
+
+（2）Controller和Device部署在机房Linux服务器上，每套设备调试系统仅需要部署一份。设备调试人员本地电脑和机房Linux服务器通过以太网连接；
+
