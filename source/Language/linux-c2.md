@@ -1085,6 +1085,34 @@ DESCRIPTION
     };
 ```
 
+函数执行成功时返回程序启动到当前调用时刻的处理器时间，以clock_t单位表示，这个单位通常是系统的时钟滴答数clock ticks，具体数值可以通过CLOCKS_PER_SEC常量来获取，将其转换成秒。失败时返回-1.
+
+使用案例：
+
+```c
+#include <stdio.h>  
+#include <time.h>  
+  
+int main() {  
+    struct tms buf;  
+    clock_t clk;  
+  
+    clk = times(&buf);  
+    if (clk == (clock_t)-1) {  
+        perror("times");  
+        return 1;  
+    }  
+  
+    printf("User time: %ld\n", buf.tms_utime / CLOCKS_PER_SEC);  
+    printf("System time: %ld\n", buf.tms_stime / CLOCKS_PER_SEC);  
+    printf("Child user time: %ld\n", buf.tms_cutime / CLOCKS_PER_SEC);  
+    printf("Child system time: %ld\n", buf.tms_cstime / CLOCKS_PER_SEC);  
+    printf("Total time: %ld\n", clk / CLOCKS_PER_SEC);  
+  
+    return 0;  
+}
+```
+
 ## P179 - 守护进程
 
 **没太理解本节的守护进程的概念**。
