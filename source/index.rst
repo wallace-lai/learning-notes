@@ -6,13 +6,7 @@
 
 .. raw:: html
 
-   <p style="text-align:center;">坚持做困难且有价值的事情</br>专注基础软件和人工智能领域</p>
-
-2024-08计划：
-
-（1）学习算法
-
-（2）学习网络编程模型【done】
+   <p style="text-align:center;">坚持做困难且有价值的事情</br>专注基础软件和人工智能领域</br>博客内容正往https://wlai.me搬迁中</p>
 
 wallace-lai's notes
 ===============================================
